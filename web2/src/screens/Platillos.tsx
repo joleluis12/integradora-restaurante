@@ -10,6 +10,26 @@ interface Platillo {
   disponible: boolean;
   imagen_url?: string | null;
 }
+const subirImagen = async (file: File) => {
+  const ext = file.name.split(".").pop();
+  const fileName = `${Date.now()}-${Math.random()}.${ext}`;
+  const filePath = `platillos/${fileName}`;
+
+  const { error } = await supabase.storage
+    .from("platillos")
+    .upload(filePath, file, {
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage
+    .from("platillos")
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
 
 export default function Platillos() {
   const [platillos, setPlatillos] = useState<Platillo[]>([]);
@@ -21,8 +41,9 @@ export default function Platillos() {
     imagen_url: "",
   });
   const [editando, setEditando] = useState<Platillo | null>(null);
-
+  const [imagenFile, setImagenFile] = useState<File | null>(null); // ✅ AQUÍ
   const [seleccionadoId, setSeleccionadoId] = useState<number | null>(null);
+
 
   const fetchPlatillos = async () => {
     const { data, error } = await supabase
@@ -38,40 +59,55 @@ export default function Platillos() {
     fetchPlatillos();
   }, []);
 
-  const handleGuardar = async () => {
-    if (!nuevo.nombre || nuevo.precio <= 0) {
-      alert("⚠️ Ingresa al menos un nombre y precio válido");
-      return;
-    }
+ const handleGuardar = async () => {
+  if (!nuevo.nombre || nuevo.precio <= 0) {
+    alert("⚠️ Ingresa al menos un nombre y precio válido");
+    return;
+  }
 
-    const dataToSave = {
-      nombre: nuevo.nombre,
-      descripcion: nuevo.descripcion,
-      precio: nuevo.precio,
-      disponible: nuevo.disponible,
-      imagen_url: nuevo.imagen_url || null,
-    };
+  let imagenUrlFinal: string | null = nuevo.imagen_url || null;
 
-    const { error } = editando
-      ? await supabase.from("platillos").update(dataToSave).eq("id", editando.id)
-      : await supabase.from("platillos").insert([dataToSave]);
+  // 🖼️ IMAGEN LOCAL (sin Supabase)
+  if (imagenFile) {
+    imagenUrlFinal = URL.createObjectURL(imagenFile);
+  }
 
-    if (error) {
-      console.error("❌ Error guardando platillo:", error);
-      alert("No se pudo guardar el platillo");
-    } else {
-      alert(editando ? "✅ Platillo actualizado" : "✅ Platillo agregado");
-      setNuevo({
-        nombre: "",
-        descripcion: "",
-        precio: 0,
-        disponible: true,
-        imagen_url: "",
-      });
-      setEditando(null);
-      fetchPlatillos();
-    }
+  const dataToSave = {
+    nombre: nuevo.nombre,
+    descripcion: nuevo.descripcion,
+    precio: nuevo.precio,
+    disponible: nuevo.disponible,
+    imagen_url: imagenUrlFinal,
   };
+
+  const { error } = editando
+    ? await supabase
+        .from("platillos")
+        .update(dataToSave)
+        .eq("id", editando.id)
+    : await supabase
+        .from("platillos")
+        .insert([dataToSave]);
+
+  if (error) {
+    console.error("❌ Error guardando platillo:", error);
+    alert("No se pudo guardar el platillo");
+  } else {
+    alert(editando ? "✅ Platillo actualizado" : "✅ Platillo agregado");
+
+    setNuevo({
+      nombre: "",
+      descripcion: "",
+      precio: 0,
+      disponible: true,
+      imagen_url: "",
+    });
+
+    setImagenFile(null);
+    setEditando(null);
+    fetchPlatillos();
+  }
+};
 
   const handleEliminar = async (id: number) => {
     if (!confirm("¿Seguro que deseas eliminar este platillo?")) return;
@@ -86,12 +122,13 @@ export default function Platillos() {
       fetchPlatillos();
     }
   };
-
   const handleEditar = (p: Platillo) => {
     setNuevo({ ...p });
     setEditando(p);
+    setImagenFile(null); // ✅ importante
     if (p.id) setSeleccionadoId(p.id);
   };
+
 
   const seleccionado = useMemo(() => {
     if (seleccionadoId == null) return null;
@@ -161,22 +198,36 @@ export default function Platillos() {
             }}
             style={S.input}
           />
+        <div style={S.fileWrap}>
           <input
-            type="text"
-            placeholder="URL de imagen (opcional)"
-            value={nuevo.imagen_url || ""}
-            onChange={(e) => setNuevo({ ...nuevo, imagen_url: e.target.value })}
-            style={S.input}
+            id="fileInput"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0] || null;
+              setImagenFile(file);
+            }}
+            style={{ display: "none" }}
           />
 
-          <label style={S.label}>
-            <input
-              type="checkbox"
-              checked={nuevo.disponible}
-              onChange={(e) => setNuevo({ ...nuevo, disponible: e.target.checked })}
-            />
-            Disponible
-          </label>
+          <button
+            type="button"
+            className="btnSoft"
+            style={S.fileButton}
+            onClick={() => document.getElementById("fileInput")?.click()}
+          >
+            Subir imagen
+          </button>
+        </div>
+
+        <label style={S.label}>
+          <input
+            type="checkbox"
+            checked={nuevo.disponible}
+            onChange={(e) => setNuevo({ ...nuevo, disponible: e.target.checked })}
+          />
+          Disponible
+        </label>
 
           <button className="btnPrimary" onClick={handleGuardar} style={S.btnGuardar}>
             {editando ? "Guardar" : "Crear"}
@@ -449,12 +500,12 @@ const S: Record<string, React.CSSProperties> = {
   },
   title: {
     margin: 0,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 1000 as const,
     color: "#EAF0FF",
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 900,
     color: "rgba(226,232,240,0.70)",
     padding: "4px 10px",
@@ -481,7 +532,7 @@ const S: Record<string, React.CSSProperties> = {
     backdropFilter: "blur(10px)",
     boxShadow: "0 14px 30px rgba(0,0,0,0.35)",
     display: "grid",
-    gridTemplateColumns: "1.1fr 1.6fr .7fr 1.6fr auto auto",
+    gridTemplateColumns: "1fr 1.8fr 1fr 1.72fr auto auto",
     gap: 10,
     alignItems: "center",
     marginBottom: 12,
@@ -491,7 +542,7 @@ const S: Record<string, React.CSSProperties> = {
     padding: "10px 12px",
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.10)",
-    fontSize: 17,
+    fontSize: 19,
     backgroundColor: "rgba(10,16,32,0.55)",
     color: "#EAF0FF",
     outline: "none",
@@ -544,7 +595,7 @@ const S: Record<string, React.CSSProperties> = {
     background: "rgba(10,16,32,0.35)",
   },
   th: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: 1000 as const,
     color: "rgba(226,232,240,0.68)",
     textTransform: "uppercase",
@@ -579,7 +630,7 @@ const S: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     borderRadius: 999,
     padding: "5px 10px",
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: 1000 as const,
     border: "1px solid rgba(255,255,255,0.10)",
     whiteSpace: "nowrap",
@@ -704,4 +755,31 @@ sideEmptyText: {
     fontWeight: 1000 as const,
     transition: "transform 120ms ease, opacity 120ms ease",
   },
+fileWrap: {
+  display: "flex",
+  width: "100%",
+},
+
+fileButton: {
+  flex: 1,                 
+  width: "100%",
+  background: "rgba(124,58,237,.14)",
+  color: "#E9D5FF",
+  border: "1px dashed rgba(124,58,237,.45)",
+  borderRadius: 12,
+  padding: "10px 12px",
+  fontWeight: 900,
+  cursor: "pointer",
+  textAlign: "left",
+},
+
+fileName: {
+  fontSize: 14,
+  color: "rgba(226,232,240,0.75)",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  maxWidth: 180,
+},
+
 };
