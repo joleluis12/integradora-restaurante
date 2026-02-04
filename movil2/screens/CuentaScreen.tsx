@@ -70,7 +70,7 @@ export default function CuentaScreen({ route, navigation }: any) {
       )
       .subscribe();
 
-    console.log("👂 Suscripción activa a pedido y detalles");
+    console.log(" Suscripción activa a pedido y detalles");
   };
 
   // 🔹 Refresco manual al jalar hacia abajo (misma lógica que HomeScreen)
@@ -96,14 +96,14 @@ export default function CuentaScreen({ route, navigation }: any) {
       Alert.alert("❌ Error", "No se pudo pedir el cobro.");
       console.log(error);
     } else {
-      Alert.alert("💸 Pedido enviado a caja", "El cajero verá el pedido en su lista.");
+      Alert.alert(" Pedido enviado a caja", "El cajero verá el pedido en su lista.");
     }
   };
 
   // ✅ Finalizar cuenta
   const finalizarCuenta = async () => {
     if (pedido.estado !== "Entregado") {
-      Alert.alert("⏳ Espera", "Caja aún no ha confirmado el cobro.");
+      Alert.alert(" Espera", "Caja aún no ha confirmado el cobro.");
       return;
     }
 
@@ -184,7 +184,7 @@ export default function CuentaScreen({ route, navigation }: any) {
           />
         }
       >
-        <Text style={styles.title}>🧾 Cuenta de Mesa {pedido.numero_mesa}</Text>
+        <Text style={styles.title}> Cuenta de Mesa {pedido.numero_mesa}</Text>
 
         <View style={styles.detalleBox}>
           {pedido.detalle_pedidos?.map((d: any) => (
@@ -197,11 +197,11 @@ export default function CuentaScreen({ route, navigation }: any) {
           ))}
         </View>
 
-        <Text style={styles.total}>💰 Total: ${total?.toFixed(2)}</Text>
+        <Text style={styles.total}> Total: ${total?.toFixed(2)}</Text>
 
         {pedido.estado === "Listo" && (
           <TouchableOpacity style={styles.btnCobro} onPress={pedirCobro}>
-            <Text style={styles.btnText}>💸 Pedir permiso de cobro</Text>
+            <Text style={styles.btnText}> Pedir permiso de cobro</Text>
           </TouchableOpacity>
         )}
 
@@ -214,11 +214,11 @@ export default function CuentaScreen({ route, navigation }: any) {
         {pedido.estado === "Entregado" && (
           <>
             <TouchableOpacity style={styles.btnTicket} onPress={generarTicketPDF}>
-              <Text style={styles.btnText}>🧾 Generar Ticket PDF</Text>
+              <Text style={styles.btnText}> Generar Ticket PDF</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.btnFinalizar} onPress={finalizarCuenta}>
-              <Text style={styles.btnText}>✅ Finalizar Cuenta</Text>
+              <Text style={styles.btnText}> Finalizar Cuenta</Text>
             </TouchableOpacity>
           </>
         )}

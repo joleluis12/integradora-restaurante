@@ -11,8 +11,11 @@ import {
   Alert,
   RefreshControl,
   Animated,
+  KeyboardAvoidingView,
+  Pressable,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { supabase } from "../supabase/supabaseClient";
 import { COLORS, FONTS, CARD } from "../styles/theme";
 
@@ -30,21 +33,50 @@ export default function HomeScreen({ navigation, user }: any) {
   const [filtro, setFiltro] = useState<Filtro>("Todas");
   const [q, setQ] = useState("");
 
+  // Anim base
   const listFade = useRef(new Animated.Value(0)).current;
   const listTranslate = useRef(new Animated.Value(8)).current;
+
   const fabScale = useRef(new Animated.Value(1)).current;
+  const fabRotate = useRef(new Animated.Value(0)).current;
+
+  const logoutScale = useRef(new Animated.Value(1)).current;
+
+  // Focus search
+  const searchFocus = useRef(new Animated.Value(0)).current;
+
+  // Modal anim
+  const modalScale = useRef(new Animated.Value(0.92)).current;
+  const modalOpacity = useRef(new Animated.Value(0)).current;
+  const [focusField, setFocusField] = useState<"mesa" | "ocupantes" | "nota" | null>(null);
 
   // Ribbons animadas del panel
   const ribbon1 = useRef(new Animated.Value(0)).current;
   const ribbon2 = useRef(new Animated.Value(0)).current;
   const ribbon3 = useRef(new Animated.Value(0)).current;
 
+  // ========= Helpers anim =========
+  const pressIn = (v: Animated.Value, to = 0.97) =>
+    Animated.spring(v, {
+      toValue: to,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 180,
+    }).start();
+
+  const pressOut = (v: Animated.Value) =>
+    Animated.spring(v, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 6,
+      tension: 180,
+    }).start();
+
   useEffect(() => {
     if (user?.id) {
       void fetchMesas();
       activarTiempoReal();
     }
-    // ✅ cleanup sin Promise
     return () => {
       void supabase.removeAllChannels();
     };
@@ -52,8 +84,8 @@ export default function HomeScreen({ navigation, user }: any) {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(listFade, { toValue: 1, duration: 350, useNativeDriver: true }),
-      Animated.timing(listTranslate, { toValue: 0, duration: 350, useNativeDriver: true }),
+      Animated.timing(listFade, { toValue: 1, duration: 320, useNativeDriver: true }),
+      Animated.timing(listTranslate, { toValue: 0, duration: 320, useNativeDriver: true }),
     ]).start();
   }, [mesas.length, filtro, q]);
 
@@ -65,10 +97,25 @@ export default function HomeScreen({ navigation, user }: any) {
           Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: true }),
         ])
       ).start();
+
     loop(ribbon1, 0);
     loop(ribbon2, 800);
     loop(ribbon3, 1600);
   }, []);
+
+  // Modal open animation
+  useEffect(() => {
+    if (modalVisible) {
+      Animated.parallel([
+        Animated.timing(modalOpacity, { toValue: 1, duration: 160, useNativeDriver: true }),
+        Animated.spring(modalScale, { toValue: 1, friction: 7, tension: 120, useNativeDriver: true }),
+      ]).start();
+    } else {
+      modalScale.setValue(0.92);
+      modalOpacity.setValue(0);
+      setFocusField(null);
+    }
+  }, [modalVisible]);
 
   // Data
   const fetchMesas = async () => {
@@ -79,6 +126,7 @@ export default function HomeScreen({ navigation, user }: any) {
         .eq("id_mesero", user.id)
         .neq("estado", "Completada")
         .order("created_at", { ascending: false });
+
       if (error) console.log("❌ Error cargando mesas:", error.message);
       else setMesas(data || []);
     } catch (err: any) {
@@ -86,28 +134,20 @@ export default function HomeScreen({ navigation, user }: any) {
     }
   };
 
-  // No async; callbacks sin devolver promesa
+  // realtime
   const activarTiempoReal = () => {
     supabase
       .channel("pedidos_live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "pedidos" },
-        () => {
-          void fetchMesas();
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => {
+        void fetchMesas();
+      })
       .subscribe();
 
     supabase
       .channel("detalle_live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "detalle_pedidos" },
-        () => {
-          void fetchMesas();
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "detalle_pedidos" }, () => {
+        void fetchMesas();
+      })
       .subscribe();
   };
 
@@ -118,7 +158,7 @@ export default function HomeScreen({ navigation, user }: any) {
   }, []);
 
   const agregarMesa = async () => {
-    if (!numeroMesa) return Alert.alert("⚠️ Ingresa el número de mesa");
+    if (!numeroMesa) return Alert.alert(" Ingresa el número de mesa");
     try {
       const { error } = await supabase.from("pedidos").insert([
         {
@@ -131,6 +171,7 @@ export default function HomeScreen({ navigation, user }: any) {
           total: 0,
         },
       ]);
+
       if (error) {
         console.log("❌ Error al agregar mesa:", error.message);
         Alert.alert("Error", "No se pudo agregar la mesa");
@@ -167,7 +208,10 @@ export default function HomeScreen({ navigation, user }: any) {
       out = out.filter((x) => {
         const mesaTxt = `mesa ${x.numero_mesa}`.toLowerCase();
         const notaTxt = (x.nota || "").toLowerCase();
-        const nombres = (x.detalle_pedidos || []).map((p: any) => p?.platillos?.nombre || "").join(" ").toLowerCase();
+        const nombres = (x.detalle_pedidos || [])
+          .map((p: any) => p?.platillos?.nombre || "")
+          .join(" ")
+          .toLowerCase();
         return mesaTxt.includes(query) || notaTxt.includes(query) || nombres.includes(query);
       });
     }
@@ -182,106 +226,216 @@ export default function HomeScreen({ navigation, user }: any) {
   const totalEnviado = mesas.filter((m) => m.estado === "Enviado").length;
   const totalEntregado = mesas.filter((m) => m.estado === "Entregado").length;
 
+  // ====== Stat Card (solo UI) ======
+  const StatCard = ({ label, value, icon }: { label: string; value: number; icon: any }) => {
+    const s = useRef(new Animated.Value(1)).current;
+    return (
+      <Animated.View style={[styles.statCard, { transform: [{ scale: s }] }]}>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPressIn={() => pressIn(s, 0.98)}
+          onPressOut={() => pressOut(s)}
+          style={{ width: "100%" }}
+        >
+          <View style={styles.statTopRow}>
+            <View style={styles.statIconWrap}>
+              <MaterialCommunityIcons name={icon} size={16} color={COLORS.white} />
+            </View>
+            <Text style={styles.statLabel} numberOfLines={1}>
+              {label}
+            </Text>
+          </View>
+          <Text style={styles.statValue}>{value}</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // === Card con animación press ===
   const MesaCard = memo(({ item }: { item: any }) => {
     const { chipBg, chip, stripe } = estadoColors(item.estado as Estado);
+
     const totalMesa =
       item?.detalle_pedidos?.reduce(
         (acc: number, p: any) => acc + (Number(p?.platillos?.precio) || 0) * (Number(p?.cantidad) || 0),
         0
       ) || 0;
 
-    return (
-      <View style={styles.cardWrap}>
-        <View style={[styles.stripe, { backgroundColor: stripe }]} />
-        <View style={[styles.card, CARD]}>
-          <View style={styles.rowBetween}>
-            <View style={{ flex: 1 }}>
-              <Text style={[FONTS.subtitle, styles.mesaTitle]}>Mesa {item.numero_mesa}</Text>
-              <Text style={[FONTS.small, styles.subText]}>Ocupantes: {item.ocupantes || "—"}</Text>
-            </View>
-            <View style={[styles.chip, { backgroundColor: chipBg }]}>
-              <Text style={[styles.chipText, { color: chip }]}>{item.estado}</Text>
-            </View>
-          </View>
+    const cardScale = useRef(new Animated.Value(1)).current;
+    const menuScale = useRef(new Animated.Value(1)).current;
+    const cuentaScale = useRef(new Animated.Value(1)).current;
 
-          {item.detalle_pedidos?.length > 0 ? (
-            <View style={[styles.pedidosBox, { backgroundColor: COLORS.bgLight, borderColor: COLORS.bgLight }]}>
-              {item.detalle_pedidos.map((p: any) => (
-                <View key={p.id} style={styles.platilloRow}>
-                  <Text style={[FONTS.body, styles.platilloNombre]}>
-                    {p.platillos?.nombre || "Platillo"} ×{p.cantidad}
-                  </Text>
-                  <Text style={[FONTS.subtitle, styles.platilloPrecio]}>
-                    ${((p.platillos?.precio || 0) * p.cantidad).toFixed(2)}
-                  </Text>
-                </View>
-              ))}
-              <View style={styles.totalRow}>
-                <Text style={[FONTS.small, styles.totalLabel]}>Total estimado</Text>
-                <Text style={[FONTS.subtitle, styles.totalValue]}>${totalMesa.toFixed(2)}</Text>
+    return (
+      <Animated.View style={[styles.cardWrap, { transform: [{ scale: cardScale }] }]}>
+        <View style={[styles.stripe, { backgroundColor: stripe }]} />
+
+        <TouchableOpacity
+          activeOpacity={1}
+          onPressIn={() => pressIn(cardScale, 0.985)}
+          onPressOut={() => pressOut(cardScale)}
+          style={{ marginHorizontal: 8 }}
+        >
+          <View style={[styles.card, CARD]}>
+            <View style={styles.rowBetween}>
+              <View style={{ flex: 1 }}>
+                <Text style={[FONTS.subtitle, styles.mesaTitle]}>Mesa {item.numero_mesa}</Text>
+                <Text style={[FONTS.small, styles.subText]}>Ocupantes: {item.ocupantes || "—"}</Text>
+              </View>
+
+              <View style={[styles.chip, { backgroundColor: chipBg }]}>
+                <Text style={[styles.chipText, { color: chip }]}>{item.estado}</Text>
               </View>
             </View>
-          ) : (
-            <Text style={[FONTS.small, styles.sinPedidos]}>Sin pedidos aún</Text>
-          )}
 
-          <View style={styles.buttons}>
-            <TouchableOpacity
-              style={[styles.btn, styles.btnOutline]}
-              onPress={() => navigation.navigate("MenuScreen", { mesa: item })}
-              activeOpacity={0.9}
-            >
-              <Text style={[FONTS.subtitle, styles.btnTextOutline]}>Menú</Text>
-            </TouchableOpacity>
+            {item.detalle_pedidos?.length > 0 ? (
+              <View style={[styles.pedidosBox, { backgroundColor: COLORS.bgLight, borderColor: COLORS.bgLight }]}>
+                {item.detalle_pedidos.map((p: any) => (
+                  <View key={p.id} style={styles.platilloRow}>
+                    <Text style={[FONTS.body, styles.platilloNombre]}>
+                      {p.platillos?.nombre || "Platillo"} ×{p.cantidad}
+                    </Text>
+                    <Text style={[FONTS.subtitle, styles.platilloPrecio]}>
+                      ${((p.platillos?.precio || 0) * p.cantidad).toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
 
-            <TouchableOpacity
-              style={[styles.btn, styles.btnSolid]}
-              onPress={() => navigation.navigate("CuentaScreen", { mesa: item })}
-              activeOpacity={0.9}
-            >
-              <Text style={[FONTS.subtitle, styles.btnTextSolid]}>Cuenta</Text>
-            </TouchableOpacity>
+                <View style={styles.totalRow}>
+                  <Text style={[FONTS.small, styles.totalLabel]}>Total estimado</Text>
+                  <Text style={[FONTS.subtitle, styles.totalValue]}>${totalMesa.toFixed(2)}</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={[FONTS.small, styles.sinPedidos]}>Sin pedidos aún</Text>
+            )}
+
+            <View style={styles.buttons}>
+              <Animated.View style={{ flex: 1, transform: [{ scale: menuScale }] }}>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnOutline]}
+                  onPress={() => navigation.navigate("MenuScreen", { mesa: item })}
+                  onPressIn={() => pressIn(menuScale, 0.97)}
+                  onPressOut={() => pressOut(menuScale)}
+                  activeOpacity={0.95}
+                >
+                  <Text style={[FONTS.subtitle, styles.btnTextOutline]}>Menú</Text>
+                </TouchableOpacity>
+              </Animated.View>
+
+              <Animated.View style={{ flex: 1, transform: [{ scale: cuentaScale }] }}>
+                <TouchableOpacity
+                  style={[styles.btn, styles.btnSolid]}
+                  onPress={() => navigation.navigate("CuentaScreen", { mesa: item })}
+                  onPressIn={() => pressIn(cuentaScale, 0.97)}
+                  onPressOut={() => pressOut(cuentaScale)}
+                  activeOpacity={0.95}
+                >
+                  <Text style={[FONTS.subtitle, styles.btnTextSolid]}>Cuenta</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
           </View>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </Animated.View>
     );
   });
 
+  // FAB anim
   const pressFab = () => {
-    Animated.sequence([
-      Animated.timing(fabScale, { toValue: 0.94, duration: 80, useNativeDriver: true }),
-      Animated.spring(fabScale, { toValue: 1, friction: 4, useNativeDriver: true }),
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(fabScale, { toValue: 0.94, duration: 80, useNativeDriver: true }),
+        Animated.spring(fabScale, { toValue: 1, friction: 4, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.timing(fabRotate, { toValue: 1, duration: 140, useNativeDriver: true }),
+        Animated.timing(fabRotate, { toValue: 0, duration: 140, useNativeDriver: true }),
+      ]),
     ]).start(() => setModalVisible(true));
   };
 
+  const fabRot = fabRotate.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "12deg"],
+  });
+
+  // filtro chip anim
   const FiltroChip = ({ label }: { label: Filtro }) => {
     const active = filtro === label;
+    const s = useRef(new Animated.Value(1)).current;
+
+    const doPress = () => {
+      Animated.sequence([
+        Animated.timing(s, { toValue: 0.96, duration: 80, useNativeDriver: true }),
+        Animated.spring(s, { toValue: 1, friction: 4, useNativeDriver: true }),
+      ]).start();
+
+      setFiltro(active ? "Todas" : label);
+    };
+
     return (
-      <TouchableOpacity
-        onPress={() => setFiltro(active ? "Todas" : label)}
-        activeOpacity={0.9}
-        style={[
-          styles.filterChip,
-          active
-            ? { backgroundColor: COLORS.primary, borderColor: COLORS.primary }
-            : { backgroundColor: COLORS.white, borderColor: COLORS.accent },
-        ]}
-      >
-        <Text style={[styles.filterChipText, { color: active ? COLORS.white : COLORS.accent }]}>{label}</Text>
-      </TouchableOpacity>
+      <Animated.View style={{ transform: [{ scale: s }] }}>
+        <TouchableOpacity
+          onPress={doPress}
+          activeOpacity={0.9}
+          style={[
+            styles.filterChip,
+            active
+              ? { backgroundColor: COLORS.primary, borderColor: COLORS.primary }
+              : { backgroundColor: COLORS.white, borderColor: COLORS.accent },
+          ]}
+        >
+          <Text style={[styles.filterChipText, { color: active ? COLORS.white : COLORS.accent }]}>{label}</Text>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
-  // reloj para el panel
+  // reloj
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(i);
   }, []);
 
+  const onLogout = async () => {
+    pressIn(logoutScale, 0.96);
+    setTimeout(() => pressOut(logoutScale), 90);
+    await supabase.auth.signOut();
+  };
+
+  // Botones modal con anim
+  const ModalBtn = ({ label, variant, onPress }: { label: string; variant: "primary" | "ghost"; onPress: () => void }) => {
+    const s = useRef(new Animated.Value(1)).current;
+    const isPrimary = variant === "primary";
+
+    return (
+      <Animated.View style={{ flex: 1, transform: [{ scale: s }] }}>
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={onPress}
+          onPressIn={() => pressIn(s, 0.97)}
+          onPressOut={() => pressOut(s)}
+          style={isPrimary ? styles.btnGuardarNew : styles.btnCancelarNew}
+        >
+          {isPrimary ? (
+            <>
+              <View style={styles.gIcon}>
+                <Text style={styles.gIconText}></Text>
+              </View>
+              <Text style={styles.btnGuardarText}>{label}</Text>
+            </>
+          ) : (
+            <Text style={styles.btnCancelarText}>{label}</Text>
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      {/* PANEL mejorado */}
+      {/* PANEL */}
       <LinearGradient
         colors={[COLORS.primary, COLORS.primary + "DD", COLORS.primary + "AA"]}
         start={{ x: 0, y: 0 }}
@@ -347,41 +501,45 @@ export default function HomeScreen({ navigation, user }: any) {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.btnLogout} onPress={async () => await supabase.auth.signOut()}>
-            <Text style={{ color: COLORS.white, fontWeight: "800" }}>Salir</Text>
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: logoutScale }] }}>
+            <TouchableOpacity style={styles.btnLogout} onPress={onLogout} activeOpacity={0.9}>
+              <Text style={{ color: COLORS.white, fontWeight: "800" }}>Salir</Text>
+            </TouchableOpacity>
+          </Animated.View>
         </View>
 
-        {/* Métricas */}
-        <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={styles.statTitle}>Inconclusa</Text>
-            <Text style={styles.statCount}>{totalInconclusa}</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statTitle}>Enviado</Text>
-            <Text style={styles.statCount}>{totalEnviado}</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statTitle}>Entregado</Text>
-            <Text style={styles.statCount}>{totalEntregado}</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statTitle}>Todas</Text>
-            <Text style={styles.statCount}>{totalTodas}</Text>
-          </View>
+        {/* Métricas (más compactas, SIN encimarse) */}
+        <View style={styles.statsGrid}>
+          <StatCard label="Inconclusa" value={totalInconclusa} icon="progress-clock" />
+          <StatCard label="Enviado" value={totalEnviado} icon="send" />
+          <StatCard label="Entregado" value={totalEntregado} icon="check-circle" />
+          <StatCard label="Todas" value={totalTodas} icon="format-list-bulleted" />
         </View>
       </LinearGradient>
 
       {/* Search */}
       <View style={styles.searchWrap}>
-        <TextInput
-          placeholder="Buscar: mesa, nota o platillo…"
-          placeholderTextColor={COLORS.textGray}
-          value={q}
-          onChangeText={setQ}
-          style={styles.searchInput}
-        />
+        <Animated.View
+          style={[
+            styles.searchCard,
+            {
+              borderColor: searchFocus.interpolate({
+                inputRange: [0, 1],
+                outputRange: ["rgba(59,130,246,0.45)", "rgba(59,130,246,0.9)"],
+              }),
+            },
+          ]}
+        >
+          <TextInput
+            placeholder="Buscar: mesa, nota o platillo…"
+            placeholderTextColor={COLORS.textGray}
+            value={q}
+            onChangeText={setQ}
+            style={styles.searchInput}
+            onFocus={() => Animated.timing(searchFocus, { toValue: 1, duration: 140, useNativeDriver: false }).start()}
+            onBlur={() => Animated.timing(searchFocus, { toValue: 0, duration: 140, useNativeDriver: false }).start()}
+          />
+        </Animated.View>
       </View>
 
       {/* Filtros */}
@@ -399,77 +557,93 @@ export default function HomeScreen({ navigation, user }: any) {
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140 }}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary]}
-              tintColor={COLORS.primary}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} tintColor={COLORS.primary} />
           }
           ListEmptyComponent={
             <Text style={[FONTS.small, { textAlign: "center", marginTop: 30, color: COLORS.textGray }]}>
-              No hay resultados 🍽️
+              No hay resultados 
             </Text>
           }
         />
       </Animated.View>
 
       {/* FAB */}
-      <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabScale }] }]}>
+      <Animated.View style={[styles.fabWrap, { transform: [{ scale: fabScale }, { rotate: fabRot }] }]}>
         <TouchableOpacity activeOpacity={0.9} onPress={pressFab} style={styles.fab}>
           <Text style={{ color: COLORS.white, fontSize: 28, fontWeight: "900", marginTop: -2 }}>＋</Text>
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Modal */}
-      <Modal visible={modalVisible} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, CARD, { padding: 18 }]}>
-            <Text style={[FONTS.title, styles.modalTitle]}>Abrir nueva mesa</Text>
-            <Text style={[FONTS.small, styles.modalSubtitle]}>Completa los datos</Text>
+      {/* MODAL NUEVO */}
+      <Modal visible={modalVisible} transparent animationType="fade" statusBarTranslucent>
+        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalVisible(false)} />
 
-            <View style={styles.inputsRow}>
-              <TextInput
-                placeholder="Número de mesa"
-                keyboardType="numeric"
-                value={numeroMesa}
-                onChangeText={setNumeroMesa}
-                style={[styles.input, { flex: 1 }]}
-                placeholderTextColor={COLORS.textGray}
-              />
-              <View style={{ width: 12 }} />
-              <TextInput
-                placeholder="Ocupantes"
-                keyboardType="numeric"
-                value={ocupantes}
-                onChangeText={setOcupantes}
-                style={[styles.input, { flex: 1 }]}
-                placeholderTextColor={COLORS.textGray}
-              />
+          <Animated.View style={[styles.modalCardNew, { opacity: modalOpacity, transform: [{ scale: modalScale }] }]}>
+            <View style={styles.modalHeaderNew}>
+              <Text style={styles.modalTitleNew}>Abrir nueva mesa</Text>
+              <Text style={styles.modalSubtitleNew}>Completa los datos</Text>
             </View>
 
-            <TextInput
-              placeholder="Nota (opcional)"
-              value={nota}
-              onChangeText={setNota}
-              style={styles.input}
-              placeholderTextColor={COLORS.textGray}
-            />
+            <View style={styles.modalInputsNew}>
+              {/* Número de mesa */}
+              <View style={[styles.inputPill, focusField === "mesa" && styles.inputPillActive]}>
+                <View style={styles.inputIconBox}>
+                  <MaterialCommunityIcons name="seat" size={22} color={COLORS.primary} />
+                </View>
+                <TextInput
+                  placeholder="Número de mesa"
+                  placeholderTextColor={COLORS.textGray}
+                  keyboardType="numeric"
+                  value={numeroMesa}
+                  onChangeText={setNumeroMesa}
+                  onFocus={() => setFocusField("mesa")}
+                  onBlur={() => setFocusField(null)}
+                  style={styles.inputPillText}
+                />
+              </View>
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalBtn, styles.modalConfirm]} onPress={agregarMesa} activeOpacity={0.9}>
-                <Text style={[FONTS.subtitle, styles.modalBtnText]}>Guardar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalCancel]}
-                onPress={() => setModalVisible(false)}
-                activeOpacity={0.9}
-              >
-                <Text style={[FONTS.subtitle, styles.modalBtnText]}>Cancelar</Text>
-              </TouchableOpacity>
+              {/* Personas */}
+              <View style={[styles.inputPill, focusField === "ocupantes" && styles.inputPillActiveSoft]}>
+                <View style={styles.inputIconBox}>
+                  <MaterialCommunityIcons name="account-group" size={22} color={COLORS.textGray} />
+                </View>
+                <TextInput
+                  placeholder="Personas"
+                  placeholderTextColor={COLORS.textGray}
+                  keyboardType="numeric"
+                  value={ocupantes}
+                  onChangeText={setOcupantes}
+                  onFocus={() => setFocusField("ocupantes")}
+                  onBlur={() => setFocusField(null)}
+                  style={styles.inputPillText}
+                />
+                <Text style={styles.inputRightValue}>{ocupantes || "0"}</Text>
+              </View>
+
+              {/* Nota */}
+              <View style={[styles.inputPill, focusField === "nota" && styles.inputPillActiveSoft]}>
+                <View style={styles.inputIconBox}>
+                  <MaterialCommunityIcons name="square-edit-outline" size={22} color={COLORS.textGray} />
+                </View>
+                <TextInput
+                  placeholder="Nota (opcional)"
+                  placeholderTextColor={COLORS.textGray}
+                  value={nota}
+                  onChangeText={setNota}
+                  onFocus={() => setFocusField("nota")}
+                  onBlur={() => setFocusField(null)}
+                  style={styles.inputPillText}
+                />
+              </View>
             </View>
-          </View>
-        </View>
+
+            <View style={styles.modalBtnRow}>
+              <ModalBtn label="Guardar" variant="primary" onPress={agregarMesa} />
+              <ModalBtn label="Cancelar" variant="ghost" onPress={() => setModalVisible(false)} />
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -484,16 +658,10 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 18,
     borderBottomRightRadius: 18,
     paddingTop: Platform.OS === "ios" ? 12 : 8,
-    paddingBottom: 16,
+    paddingBottom: 14,
     overflow: "hidden",
   },
-  ribbon: {
-    position: "absolute",
-    left: -160,
-    width: 260,
-    height: 28,
-    borderRadius: 14,
-  },
+  ribbon: { position: "absolute", left: -160, width: 260, height: 28, borderRadius: 14 },
   panelContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -509,37 +677,63 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.28)",
   },
-  statsRow: {
+
+  // ====== STATS compactas ======
+  statsGrid: {
     flexDirection: "row",
-    gap: 10,
+    flexWrap: "wrap",
+    gap: 8,
     paddingHorizontal: 16,
-    marginTop: 14,
+    marginTop: 10,
   },
-  stat: {
-    flex: 1,
+  statCard: {
+    width: "48.8%",
     borderRadius: 14,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.28)",
+    borderColor: "rgba(255,255,255,0.26)",
     backgroundColor: "rgba(255,255,255,0.16)",
   },
-  statTitle: {
-    fontSize: 12,
+  statTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  statIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 10,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  statLabel: {
+    flex: 1,
+    marginTop: 0,
+    fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
     textTransform: "uppercase",
+    color: "rgba(255,255,255,0.92)",
+  },
+  statValue: {
+    marginTop: 2,
+    fontSize: 18,
+    fontWeight: "900",
     color: COLORS.white,
   },
-  statCount: { fontSize: 20, fontWeight: "900", marginTop: 2, color: COLORS.white },
 
   // Search
   searchWrap: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 },
-  searchInput: {
+  searchCard: {
     borderWidth: 2,
-    borderColor: COLORS.accent,
     borderRadius: 14,
     backgroundColor: COLORS.white,
+  },
+  searchInput: {
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
@@ -547,18 +741,8 @@ const styles = StyleSheet.create({
   },
 
   // Filtros
-  filtersRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1.5,
-  },
+  filtersRow: { flexDirection: "row", paddingHorizontal: 16, paddingBottom: 8, gap: 8 },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1.5 },
   filterChipText: { fontSize: 13, fontWeight: "800", letterSpacing: 0.3 },
 
   // Lista / Card
@@ -574,7 +758,6 @@ const styles = StyleSheet.create({
     elevation: CARD.elevation,
     padding: CARD.padding,
     paddingLeft: CARD.padding - 4,
-    marginHorizontal: 8,
     borderWidth: 1.5,
     borderColor: "#E5E7EB",
   },
@@ -585,12 +768,7 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
   chipText: { fontSize: 12, fontWeight: "800", letterSpacing: 0.3 },
 
-  pedidosBox: {
-    marginTop: 8,
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-  },
+  pedidosBox: { marginTop: 8, borderRadius: 12, padding: 10, borderWidth: 1 },
   platilloRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -630,39 +808,97 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
 
-  // Modal
+  // ========= MODAL NUEVO =========
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.40)",
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
+    padding: 22,
   },
-  modalCard: {
-    borderRadius: CARD.borderRadius,
-    backgroundColor: CARD.backgroundColor,
-    shadowColor: CARD.shadowColor,
-    shadowOffset: CARD.shadowOffset,
-    shadowOpacity: CARD.shadowOpacity,
-    shadowRadius: CARD.shadowRadius,
-    elevation: CARD.elevation,
+
+  modalCardNew: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 26,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 14,
   },
-  modalTitle: { color: COLORS.textDark },
-  modalSubtitle: { color: COLORS.textGray, marginTop: 2, marginBottom: 8 },
-  inputsRow: { flexDirection: "row", marginTop: 6 },
-  input: {
+
+  modalHeaderNew: { alignItems: "center", paddingBottom: 10 },
+  modalTitleNew: { fontSize: 28, fontWeight: "900", color: COLORS.textDark },
+  modalSubtitleNew: { marginTop: 4, fontSize: 16, fontWeight: "700", color: COLORS.textGray },
+
+  modalInputsNew: { marginTop: 10, gap: 12 },
+
+  inputPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderWidth: 2,
-    borderColor: COLORS.accent,
-    borderRadius: 14,
-    padding: 12,
-    backgroundColor: COLORS.bgLight,
-    fontSize: 16,
-    color: COLORS.textDark,
-    marginTop: 12,
+    borderColor: "#E5E7EB",
   },
-  modalButtons: { flexDirection: "row", gap: 12, marginTop: 16 },
-  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center" },
-  modalConfirm: { backgroundColor: COLORS.primary },
-  modalCancel: { backgroundColor: COLORS.danger },
-  modalBtnText: { color: COLORS.white, fontWeight: "800" },
+  inputPillActive: { borderColor: COLORS.primary, backgroundColor: "rgba(124,58,237,0.08)" },
+  inputPillActiveSoft: { borderColor: "rgba(148,163,184,0.28)", backgroundColor: "#F3F4F6" },
+
+  inputIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+    backgroundColor: "rgba(255,255,255,0.7)",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.20)",
+  },
+
+  inputPillText: { flex: 1, fontSize: 16, color: COLORS.textDark, paddingVertical: 2 },
+
+  inputRightValue: { marginLeft: 10, fontSize: 16, fontWeight: "800", color: COLORS.textGray },
+
+  modalBtnRow: { flexDirection: "row", gap: 12, marginTop: 16 },
+
+  btnGuardarNew: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.primary,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  gIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  gIconText: { color: "#fff", fontWeight: "900" },
+  btnGuardarText: { color: "#fff", fontWeight: "900", fontSize: 16 },
+
+  btnCancelarNew: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
+  btnCancelarText: { color: COLORS.textDark, fontWeight: "900", fontSize: 16 },
 });

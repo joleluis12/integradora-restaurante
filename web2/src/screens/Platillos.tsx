@@ -10,26 +10,6 @@ interface Platillo {
   disponible: boolean;
   imagen_url?: string | null;
 }
-const subirImagen = async (file: File) => {
-  const ext = file.name.split(".").pop();
-  const fileName = `${Date.now()}-${Math.random()}.${ext}`;
-  const filePath = `platillos/${fileName}`;
-
-  const { error } = await supabase.storage
-    .from("platillos")
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-
-  if (error) throw error;
-
-  const { data } = supabase.storage
-    .from("platillos")
-    .getPublicUrl(filePath);
-
-  return data.publicUrl;
-};
 
 export default function Platillos() {
   const [platillos, setPlatillos] = useState<Platillo[]>([]);
