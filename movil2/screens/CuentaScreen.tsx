@@ -113,10 +113,10 @@ export default function CuentaScreen({ route, navigation }: any) {
       .eq("id", pedido.id);
 
     if (error) {
-      Alert.alert("❌ Error", "No se pudo finalizar la cuenta.");
+      Alert.alert(" Error", "No se pudo finalizar la cuenta.");
       console.log(error);
     } else {
-      Alert.alert("✅ Cuenta finalizada", "Pedido cerrado correctamente.");
+      Alert.alert(" Cuenta finalizada", "Pedido cerrado correctamente.");
       navigation.navigate("HomeScreen");
     }
   };

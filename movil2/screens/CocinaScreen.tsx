@@ -30,7 +30,7 @@ export default function CocinaScreen({ navigation }: any) {
         (payload: any) => {
           if (payload?.new?.estado === "listo") {
             Alert.alert(
-              "✅ Pedido listo",
+              " Pedido listo",
               `Pedido #${payload.new.id} está listo para entregar`
             );
           }

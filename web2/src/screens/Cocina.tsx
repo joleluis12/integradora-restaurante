@@ -96,7 +96,7 @@ export default function Cocina() {
 
       setPedidos(pedidosTipados);
     } catch (err) {
-      console.error("❌ Error cargando pedidos:", err);
+      console.error(" Error cargando pedidos:", err);
       setPedidos([]);
     } finally {
       setLoading(false);
@@ -117,11 +117,11 @@ export default function Cocina() {
 
       if (error) throw error;
 
-      alert(`✅ Pedido #${pedido.id} marcado como listo`);
+      alert(` Pedido #${pedido.id} marcado como listo`);
       fetchPedidos();
     } catch (err) {
-      console.error("❌ Error al marcar como listo:", err);
-      alert("❌ No se pudo marcar como listo");
+      console.error(" Error al marcar como listo:", err);
+      alert(" No se pudo marcar como listo");
     }
   };
 
@@ -253,7 +253,7 @@ export default function Cocina() {
             <div style={S.panel}>
               {!pedidoSeleccionado ? (
                 <div style={S.emptyCard}>
-                  <div style={S.emptyIcon}>🍽️</div>
+                  <div style={S.emptyIcon}></div>
                   <h3 style={S.emptyTitle}>Mesa {mesaSeleccionada}</h3>
                   <p style={S.emptyText}>Sin pedidos por ahora.</p>
                 </div>
@@ -299,7 +299,7 @@ export default function Cocina() {
                                 <div style={S.itemDesc}>{detalle.platillos.descripcion}</div>
                               )}
 
-                              {detalle.nota && <div style={S.itemNote}>📝 {detalle.nota}</div>}
+                              {detalle.nota && <div style={S.itemNote}> {detalle.nota}</div>}
                             </div>
 
                             <div style={S.itemPrice}>
@@ -312,7 +312,7 @@ export default function Cocina() {
                         );
                       })
                     ) : (
-                      <div style={S.emptyInside}>⚠️ Sin platillos registrados</div>
+                      <div style={S.emptyInside}> Sin platillos registrados</div>
                     )}
                   </div>
 
@@ -323,13 +323,13 @@ export default function Cocina() {
                         style={S.btnPrimary}
                         onClick={() => marcarListo(pedidoSeleccionado)}
                       >
-                        ✅ Marcar como listo
+                         Marcar como listo
                       </button>
                     )}
 
                     {pedidoSeleccionado.estado === "Listo" && (
                       <button style={S.btnDisabled} disabled>
-                        🍽️ Pedido listo para entregar
+                         Pedido listo para entregar
                       </button>
                     )}
                   </div>
@@ -459,7 +459,7 @@ wrap: {
   padding: 22,
   boxShadow: "0 14px 30px rgba(0,0,0,0.35)",
   backdropFilter: "blur(10px)",
-  minHeight: 420, // 🔥 clave
+  minHeight: 420, //  clave
 },
 
   panelHeader: {

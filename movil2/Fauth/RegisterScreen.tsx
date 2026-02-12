@@ -46,12 +46,12 @@ export default function RegisterScreen({ navigation }: any) {
 
   const handleRegister = async () => {
     if (!email || !password) {
-      Alert.alert("⚠️ Campos vacíos", "Por favor completa todos los campos");
+      Alert.alert(" Campos vacíos", "Por favor completa todos los campos");
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert("⚠️ Contraseña débil", "Debe tener al menos 6 caracteres");
+      Alert.alert(" Contraseña débil", "Debe tener al menos 6 caracteres");
       return;
     }
 
@@ -62,8 +62,8 @@ export default function RegisterScreen({ navigation }: any) {
       const { data, error } = await supabase.auth.signUp({ email, password });
 
       if (error) {
-        console.log("❌ Error en signUp:", error.message);
-        Alert.alert("❌ Error al registrar", error.message);
+        console.log(" Error en signUp:", error.message);
+        Alert.alert(" Error al registrar", error.message);
         return;
       }
 
@@ -108,7 +108,7 @@ export default function RegisterScreen({ navigation }: any) {
 
           {/* Card estilo glass */}
           <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-            <Text style={styles.icon}>🧾</Text>
+            <Text style={styles.icon}></Text>
             <Text style={styles.title}>Crear cuenta</Text>
             <Text style={styles.subtitle}>Registra un nuevo mesero para el sistema</Text>
 
@@ -116,7 +116,7 @@ export default function RegisterScreen({ navigation }: any) {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Correo electrónico</Text>
               <View style={[styles.inputWrapper, focused === "email" && styles.inputWrapperFocused]}>
-                <Text style={styles.inputIcon}>📧</Text>
+                <Text style={styles.inputIcon}></Text>
                 <TextInput
                   style={styles.input}
                   placeholder="ejemplo@correo.com"
@@ -136,7 +136,7 @@ export default function RegisterScreen({ navigation }: any) {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Contraseña</Text>
               <View style={[styles.inputWrapper, focused === "password" && styles.inputWrapperFocused]}>
-                <Text style={styles.inputIcon}>🔒</Text>
+                <Text style={styles.inputIcon}></Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Mínimo 6 caracteres"
@@ -150,7 +150,7 @@ export default function RegisterScreen({ navigation }: any) {
                   onSubmitEditing={handleRegister}
                 />
                 <TouchableOpacity onPress={() => setShowPassword((v) => !v)} activeOpacity={0.7}>
-                  <Text style={styles.eye}>{showPassword ? "🙈" : "👁️"}</Text>
+                  <Text style={styles.eye}>{showPassword ? "" : ""}</Text>
                 </TouchableOpacity>
               </View>
               {/* Hint de fuerza (simple, no intrusivo) */}

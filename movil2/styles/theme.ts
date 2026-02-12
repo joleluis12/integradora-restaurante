@@ -10,7 +10,7 @@ export const COLORS = {
 
   // Nuevos añadidos inspirados en tu otra paleta
   darkBg: "#111827",     // fondo dark opcional
-  darkCard: "#0B1220",   // tarjetas dark
+  darkCard: "#0d1526",   // tarjetas dark
   white: "#FFFFFF",      // blanco puro
   bgLight: "#F9FAFB",    // fondo claro
   textDark: "#1F2937",   // texto fuerte

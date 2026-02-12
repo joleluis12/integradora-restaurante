@@ -48,7 +48,7 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("⚠️ Campos vacíos", "Por favor completa todos los campos");
+      Alert.alert(" Campos vacíos", "Por favor completa todos los campos");
       return;
     }
 
@@ -59,7 +59,7 @@ export default function LoginScreen({ navigation }: any) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
       if (error) {
-        console.log("❌ Error al iniciar sesión:", error.message);
+        console.log(" Error al iniciar sesión:", error.message);
         Alert.alert("Error", error.message);
         return;
       }
@@ -77,7 +77,7 @@ export default function LoginScreen({ navigation }: any) {
         .maybeSingle();
 
       if (perfilError) {
-        console.log("⚠️ Error cargando perfil:", perfilError.message);
+        console.log(" Error cargando perfil:", perfilError.message);
       }
 
       const perfilFinal = perfil || {
@@ -96,7 +96,7 @@ export default function LoginScreen({ navigation }: any) {
         Alert.alert("Error", "Rol no válido o no definido");
       }
     } catch (err: any) {
-      console.log("❌ Error inesperado:", err.message);
+      console.log(" Error inesperado:", err.message);
       Alert.alert("Error inesperado", err.message);
     } finally {
       setLoading(false);
@@ -131,7 +131,7 @@ export default function LoginScreen({ navigation }: any) {
           <Animated.View
             style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
           >
-            <Text style={styles.icon}>👨‍🍳</Text>
+            <Text style={styles.icon}></Text>
             <Text style={styles.title}>Acceso de Meseros</Text>
             <Text style={styles.subtitle}>Gestiona pedidos con tu cuenta</Text>
 
@@ -144,7 +144,7 @@ export default function LoginScreen({ navigation }: any) {
                   focusedInput === "email" && styles.inputWrapperFocused,
                 ]}
               >
-                <Text style={styles.inputIcon}>📧</Text>
+                <Text style={styles.inputIcon}></Text>
                 <TextInput
                   style={styles.input}
                   placeholder="ejemplo@correo.com"
@@ -169,7 +169,7 @@ export default function LoginScreen({ navigation }: any) {
                   focusedInput === "password" && styles.inputWrapperFocused,
                 ]}
               >
-                <Text style={styles.inputIcon}>🔒</Text>
+                <Text style={styles.inputIcon}></Text>
                 <TextInput
                   style={styles.input}
                   placeholder="••••••••"
@@ -187,7 +187,7 @@ export default function LoginScreen({ navigation }: any) {
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.eye}>{showPassword ? "🙈" : "👁️"}</Text>
+                  <Text style={styles.eye}>{showPassword ? "" : ""}</Text>
                 </TouchableOpacity>
               </View>
             </View>

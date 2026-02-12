@@ -38,7 +38,7 @@ export default function Caja() {
       .order("id", { ascending: false });
 
     if (error) {
-      console.error("❌ Error al traer pedidos:", error.message);
+      console.error(" Error al traer pedidos:", error.message);
       return;
     }
 
@@ -88,9 +88,9 @@ export default function Caja() {
       const { error } = await supabase.from("ventas_diarias").insert(ventas);
       if (error) throw error;
 
-      console.log(`✅ Ventas registradas del pedido #${pedido.id}`);
+      console.log(` Ventas registradas del pedido #${pedido.id}`);
     } catch (error: any) {
-      console.error("❌ Error registrando venta:", error.message);
+      console.error(" Error registrando venta:", error.message);
     }
   };
 
@@ -107,7 +107,7 @@ export default function Caja() {
     }
 
     await registrarVenta(pedido);
-    alert(`💰 Pedido #${pedido.id} cobrado y guardado en ventas diarias`);
+    alert(` Pedido #${pedido.id} cobrado y guardado en ventas diarias`);
     fetchPedidos();
   };
 
@@ -190,7 +190,7 @@ export default function Caja() {
                             {d.platillos?.nombre || "Platillo"}{" "}
                             <span style={S.qty}>×{d.cantidad}</span>
                           </div>
-                          {d.nota && <div style={S.nota}>📝 {d.nota}</div>}
+                          {d.nota && <div style={S.nota}> {d.nota}</div>}
                         </div>
 
                         <div style={S.precio}>
@@ -199,7 +199,7 @@ export default function Caja() {
                       </div>
                     ))
                   ) : (
-                    <div style={S.vacio}>⚠️ Sin detalles registrados</div>
+                    <div style={S.vacio}> Sin detalles registrados</div>
                   )}
                 </div>
 
@@ -210,13 +210,13 @@ export default function Caja() {
 
                 {p.estado === "Pendiente de cobro" && (
                   <button onClick={() => marcarEntregado(p)} style={S.btnCobrar} className="btnPrimary">
-                    ✅ Cobrar y marcar como entregado
+                     Cobrar y marcar como entregado
                   </button>
                 )}
 
                 {p.estado === "Entregado" && (
                   <button style={S.btnDisabled} disabled>
-                    ✅ Pedido entregado
+                     Pedido entregado
                   </button>
                 )}
               </div>
