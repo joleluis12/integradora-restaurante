@@ -32,7 +32,7 @@ export default function MenuScreen({ navigation, route }: any) {
   const mesa = route?.params?.mesa;
 
   // =========================
-  // ✅ GLASS ALERT (tipo imagen)
+  //  GLASS ALERT (tipo imagen)
   // =========================
   const [gaVisible, setGaVisible] = useState(false);
   const [gaTitle, setGaTitle] = useState("");
@@ -87,7 +87,7 @@ export default function MenuScreen({ navigation, route }: any) {
     setModalVisible(true);
   };
 
-  // ✅ Insertar platillo con nota y cantidad
+  //  Insertar platillo con nota y cantidad
   const confirmarAgregar = async () => {
     if (!mesa) return showAlert("Error", "No hay una mesa activa.");
 
@@ -106,7 +106,7 @@ export default function MenuScreen({ navigation, route }: any) {
       const { error } = await supabase.from("detalle_pedidos").insert(detalle);
 
       if (error) {
-        console.log("❌ Error insertando detalle:", error.message);
+        console.log(" Error insertando detalle:", error.message);
         showAlert("Error", "No se pudo agregar el platillo al pedido");
       } else {
         showAlert("Pedido actualizado", `${cantidad} × ${platilloSeleccionado.nombre} añadido al pedido`);
@@ -116,7 +116,7 @@ export default function MenuScreen({ navigation, route }: any) {
     setModalVisible(false);
   };
 
-  // ✅ Enviar pedido → Cocina + volver al Home
+  //  Enviar pedido → Cocina + volver al Home
   const enviarPedido = async () => {
     try {
       const { error } = await supabase
@@ -125,7 +125,7 @@ export default function MenuScreen({ navigation, route }: any) {
         .eq("id", mesa.id);
 
       if (error) {
-        console.log("❌ Error al enviar pedido:", error.message);
+        console.log(" Error al enviar pedido:", error.message);
         return showAlert("Error", "No se pudo enviar el pedido");
       }
 
@@ -133,7 +133,7 @@ export default function MenuScreen({ navigation, route }: any) {
         navigation.navigate("HomeScreen")
       );
     } catch (err: any) {
-      console.log("❌ Error general:", err.message);
+      console.log(" Error general:", err.message);
       showAlert("Error", "Ocurrió un problema al enviar el pedido");
     }
   };
@@ -169,7 +169,7 @@ export default function MenuScreen({ navigation, route }: any) {
                 <Image source={{ uri: item.imagen_url }} style={styles.image} />
               ) : (
                 <View style={styles.noImage}>
-                  <Text style={{ fontSize: 40 }}>🍽️</Text>
+                  <Text style={{ fontSize: 40 }}></Text>
                   <Text style={{ color: "#777" }}>Sin imagen</Text>
                 </View>
               )}
@@ -203,7 +203,7 @@ export default function MenuScreen({ navigation, route }: any) {
         <Text style={styles.btnEnviarText}>Enviar Pedido</Text>
       </TouchableOpacity>
 
-      {/* ✅ MODAL DE NOTA Y CANTIDAD (MEJORADO) */}
+      {/*  MODAL DE NOTA Y CANTIDAD (MEJORADO) */}
       <Modal visible={modalVisible} transparent animationType="fade" statusBarTranslucent>
         <View style={styles.modalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalVisible(false)} />
@@ -224,7 +224,7 @@ export default function MenuScreen({ navigation, route }: any) {
               <View style={styles.modalContentNew}>
                 <View style={styles.modalTopRow}>
                   <View style={styles.modalIcon}>
-                    <Text style={styles.modalIconText}>📝</Text>
+                    <Text style={styles.modalIconText}></Text>
                   </View>
 
                   <View style={{ flex: 1 }}>
@@ -297,7 +297,7 @@ export default function MenuScreen({ navigation, route }: any) {
         </View>
       </Modal>
 
-      {/* ✅ GLASS ALERT */}
+      {/*  GLASS ALERT */}
       <GlassAlert
         visible={gaVisible}
         title={gaTitle}
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // ✅ Modal NUEVO (más grande y bonito)
+  //  Modal NUEVO (más grande y bonito)
   modalContentNew: {
     width: "100%",
     maxWidth: 440,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
 });
 
 /* =========================================================
-   ✅ COMPONENTE EMBEBIDO - GLASS ALERT
+    COMPONENTE EMBEBIDO - GLASS ALERT
    ========================================================= */
 type GlassAlertProps = {
   visible: boolean;

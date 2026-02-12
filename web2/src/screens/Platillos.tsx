@@ -41,13 +41,13 @@ export default function Platillos() {
 
  const handleGuardar = async () => {
   if (!nuevo.nombre || nuevo.precio <= 0) {
-    alert("⚠️ Ingresa al menos un nombre y precio válido");
+    alert(" Ingresa al menos un nombre y precio válido");
     return;
   }
 
   let imagenUrlFinal: string | null = nuevo.imagen_url || null;
 
-  // 🖼️ IMAGEN LOCAL (sin Supabase)
+  //  IMAGEN LOCAL (sin Supabase)
   if (imagenFile) {
     imagenUrlFinal = URL.createObjectURL(imagenFile);
   }
@@ -70,10 +70,10 @@ export default function Platillos() {
         .insert([dataToSave]);
 
   if (error) {
-    console.error("❌ Error guardando platillo:", error);
+    console.error(" Error guardando platillo:", error);
     alert("No se pudo guardar el platillo");
   } else {
-    alert(editando ? "✅ Platillo actualizado" : "✅ Platillo agregado");
+    alert(editando ? " Platillo actualizado" : " Platillo agregado");
 
     setNuevo({
       nombre: "",
@@ -95,9 +95,9 @@ export default function Platillos() {
     const { error } = await supabase.from("platillos").delete().eq("id", id);
     if (error) {
       console.error(error);
-      alert("❌ No se pudo eliminar");
+      alert(" No se pudo eliminar");
     } else {
-      alert("🗑️ Platillo eliminado");
+      alert(" Platillo eliminado");
       if (seleccionadoId === id) setSeleccionadoId(null);
       fetchPlatillos();
     }
@@ -105,7 +105,7 @@ export default function Platillos() {
   const handleEditar = (p: Platillo) => {
     setNuevo({ ...p });
     setEditando(p);
-    setImagenFile(null); // ✅ importante
+    setImagenFile(null); //  importante
     if (p.id) setSeleccionadoId(p.id);
   };
 

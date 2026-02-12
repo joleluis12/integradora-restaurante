@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
 
-// 🧱 Screens
+//  Screens
 import Login from "./screens/Login";
 import Cocina from "./screens/Cocina";
 import Caja from "./screens/Caja";
 import Platillos from "./screens/Platillos";
 import Historial from "./screens/Historial";
 
-// 🧭 Navbar
+//  Navbar
 import NavBar from "./components/NavBar";
 
 type Section = "cocina" | "caja" | "platillos" | "historial";
@@ -20,7 +20,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   // ===============================
-  // 🔐 Verificar sesión activa
+  //  Verificar sesión activa
   // ===============================
   useEffect(() => {
     const loadSession = async () => {
@@ -42,7 +42,7 @@ export default function App() {
   }, []);
 
   // ===============================
-  // 🕓 Loading
+  //  Loading
   // ===============================
   if (loading) {
     return (
@@ -60,12 +60,12 @@ export default function App() {
   }
 
   // ===============================
-  // 🔑 Login
+  //  Login
   // ===============================
   if (!user) return <Login onLogin={setUser} />;
 
   // ===============================
-  // 🖼️ App principal
+  //  App principal
   // ===============================
   return (
     <div
@@ -74,7 +74,7 @@ export default function App() {
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden", // ✅ IMPORTANTE: no scroll aquí
+        overflow: "hidden", // IMPORTANTE: no scroll aquí
       }}
     >
       <NavBar section={section} setSection={setSection} />
@@ -85,7 +85,7 @@ export default function App() {
           width: "100%",
           margin: 0,
           padding: 0,
-          overflowY: "auto", // ✅ ÚNICO scroll
+          overflowY: "auto", //  ÚNICO scroll
           animation: "fadeIn 0.25s ease",
         }}
       >

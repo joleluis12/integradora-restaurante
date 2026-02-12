@@ -138,7 +138,7 @@ export default function Cocina() {
     return ultimoPedidoPorMesa.get(mesaSeleccionada) || null;
   }, [ultimoPedidoPorMesa, mesaSeleccionada]);
 
-  // 🎨 Colores coherentes con tu dark UI
+  //  Colores coherentes con tu dark UI
   const mesaColor = (estado?: string) => {
     if (!estado) return "#94A3B8"; // Libre (slate)
     if (estado === "Enviado") return "#F59E0B"; // amber

@@ -40,10 +40,10 @@ export default function CuentaScreen({ route, navigation }: any) {
         .eq("id", mesa.id)
         .maybeSingle();
 
-      if (error) console.log("❌ Error cargando pedido:", error.message);
+      if (error) console.log(" Error cargando pedido:", error.message);
       else setPedido(data);
     } catch (err: any) {
-      console.log("❌ Error:", err.message);
+      console.log(" Error:", err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -80,10 +80,10 @@ export default function CuentaScreen({ route, navigation }: any) {
     setRefreshing(false);
   }, []);
 
-  // 💸 Pedir permiso de cobro
+  //  Pedir permiso de cobro
   const pedirCobro = async () => {
     if (pedido.estado !== "Listo") {
-      Alert.alert("⚠️ No disponible", "Solo puedes pedir cobro cuando el pedido esté listo.");
+      Alert.alert(" No disponible", "Solo puedes pedir cobro cuando el pedido esté listo.");
       return;
     }
 
@@ -93,14 +93,14 @@ export default function CuentaScreen({ route, navigation }: any) {
       .eq("id", pedido.id);
 
     if (error) {
-      Alert.alert("❌ Error", "No se pudo pedir el cobro.");
+      Alert.alert(" Error", "No se pudo pedir el cobro.");
       console.log(error);
     } else {
       Alert.alert(" Pedido enviado a caja", "El cajero verá el pedido en su lista.");
     }
   };
 
-  // ✅ Finalizar cuenta
+  //  Finalizar cuenta
   const finalizarCuenta = async () => {
     if (pedido.estado !== "Entregado") {
       Alert.alert(" Espera", "Caja aún no ha confirmado el cobro.");
@@ -121,7 +121,7 @@ export default function CuentaScreen({ route, navigation }: any) {
     }
   };
 
-  // 🧾 Generar PDF local
+  //  Generar PDF local
   const generarTicketPDF = async () => {
     try {
       const total = pedido.detalle_pedidos?.reduce(
@@ -132,7 +132,7 @@ export default function CuentaScreen({ route, navigation }: any) {
       const html = `
         <html>
           <body style="font-family:sans-serif; text-align:center;">
-            <h2>🍽 Restaurante Villa Duarte</h2>
+            <h2> Restaurante Villa Duarte</h2>
             <p><b>Pedido #${pedido.id}</b> — Mesa ${pedido.numero_mesa}</p>
             <hr/>
             ${pedido.detalle_pedidos
@@ -153,7 +153,7 @@ export default function CuentaScreen({ route, navigation }: any) {
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri);
     } catch (err) {
-      console.log("❌ Error generando ticket PDF:", err);
+      console.log(" Error generando ticket PDF:", err);
       Alert.alert("Error", "No se pudo generar el ticket.");
     }
   };

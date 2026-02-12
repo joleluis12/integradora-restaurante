@@ -127,10 +127,10 @@ export default function HomeScreen({ navigation, user }: any) {
         .neq("estado", "Completada")
         .order("created_at", { ascending: false });
 
-      if (error) console.log("❌ Error cargando mesas:", error.message);
+      if (error) console.log(" Error cargando mesas:", error.message);
       else setMesas(data || []);
     } catch (err: any) {
-      console.log("❌ Error:", err.message);
+      console.log(" Error:", err.message);
     }
   };
 
@@ -173,7 +173,7 @@ export default function HomeScreen({ navigation, user }: any) {
       ]);
 
       if (error) {
-        console.log("❌ Error al agregar mesa:", error.message);
+        console.log(" Error al agregar mesa:", error.message);
         Alert.alert("Error", "No se pudo agregar la mesa");
       } else {
         setModalVisible(false);
@@ -182,7 +182,7 @@ export default function HomeScreen({ navigation, user }: any) {
         setNota("");
       }
     } catch (err: any) {
-      console.log("❌ Error:", err.message);
+      console.log(" Error:", err.message);
       Alert.alert("Error", err.message);
     }
   };
