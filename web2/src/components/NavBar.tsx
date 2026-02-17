@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
-type Section = "cocina" | "caja" | "platillos" | "historial";
+type Section = "cocina" | "caja" | "platillos" | "historial" | "parallevar";
 
 interface NavBarProps {
   section: Section;
@@ -15,16 +15,17 @@ export default function NavBar({ section, setSection }: NavBarProps) {
     await supabase.auth.signOut();
     window.location.reload();
   };
-   useEffect(() => {
-  const onResize = () => {
-    if (window.innerWidth > 768) {
-      setOpen(false);
-    }
-  };
 
-  window.addEventListener("resize", onResize);
-  return () => window.removeEventListener("resize", onResize);
-}, []);
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth > 768) {
+        setOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const linkStyle = (active: boolean): React.CSSProperties => ({
     background: "transparent",
@@ -35,9 +36,7 @@ export default function NavBar({ section, setSection }: NavBarProps) {
     fontWeight: 600,
     color: "#1F2A44",
     letterSpacing: 0.2,
-    borderBottom: active
-      ? "2px solid #1F2A44"
-      : "2px solid transparent",
+    borderBottom: active ? "2px solid #1F2A44" : "2px solid transparent",
     transition: "all 160ms ease",
     textAlign: "left",
   });
@@ -63,13 +62,7 @@ export default function NavBar({ section, setSection }: NavBarProps) {
         }}
       >
         {/* LEFT */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* HAMBURGUESA */}
           <button
             onClick={() => setOpen(!open)}
@@ -88,8 +81,7 @@ export default function NavBar({ section, setSection }: NavBarProps) {
 
           <div
             style={{
-              fontFamily:
-                'Georgia, "Times New Roman", Times, serif',
+              fontFamily: 'Georgia, "Times New Roman", Times, serif',
               fontSize: 26,
               fontWeight: 500,
               color: "#46087b",
@@ -103,40 +95,26 @@ export default function NavBar({ section, setSection }: NavBarProps) {
         </div>
 
         {/* LINKS DESKTOP */}
-        <div
-          className="nav-links"
-          style={{
-            display: "flex",
-            gap: 14,
-            marginRight: 12,
-          }}
-        >
-          <button
-            onClick={() => setSection("cocina")}
-            style={linkStyle(section === "cocina")}
-          >
+        <div className="nav-links" style={{ display: "flex", gap: 14, marginRight: 12 }}>
+          <button onClick={() => setSection("cocina")} style={linkStyle(section === "cocina")}>
             Cocina
           </button>
 
-          <button
-            onClick={() => setSection("caja")}
-            style={linkStyle(section === "caja")}
-          >
+          <button onClick={() => setSection("caja")} style={linkStyle(section === "caja")}>
             Caja
           </button>
 
-          <button
-            onClick={() => setSection("platillos")}
-            style={linkStyle(section === "platillos")}
-          >
+          <button onClick={() => setSection("platillos")} style={linkStyle(section === "platillos")}>
             Platillos
           </button>
 
-          <button
-            onClick={() => setSection("historial")}
-            style={linkStyle(section === "historial")}
-          >
+          <button onClick={() => setSection("historial")} style={linkStyle(section === "historial")}>
             Historial
+          </button>
+
+          {/* ✅ NUEVO */}
+          <button onClick={() => setSection("parallevar")} style={linkStyle(section === "parallevar")}>
+            Para llevar (WhatsApp)
           </button>
 
           <button
@@ -205,10 +183,18 @@ export default function NavBar({ section, setSection }: NavBarProps) {
             Historial
           </button>
 
+          {/* ✅ NUEVO */}
           <button
-            onClick={handleLogout}
-            style={{ ...linkStyle(false), color: "#B42318" }}
+            onClick={() => {
+              setSection("parallevar");
+              setOpen(false);
+            }}
+            style={linkStyle(section === "parallevar")}
           >
+            Para llevar (WhatsApp)
+          </button>
+
+          <button onClick={handleLogout} style={{ ...linkStyle(false), color: "#B42318" }}>
             Cerrar sesión
           </button>
         </div>
@@ -227,5 +213,4 @@ export default function NavBar({ section, setSection }: NavBarProps) {
       `}</style>
     </nav>
   );
-  
 }

@@ -8,16 +8,22 @@ import Cocina from "./screens/Cocina";
 import Caja from "./screens/Caja";
 import Platillos from "./screens/Platillos";
 import Historial from "./screens/Historial";
+import Parallevar from "./screens/parallevar"; // ✅ NUEVO (archivo en minúsculas)
 
 //  Navbar
 import NavBar from "./components/NavBar";
 
-type Section = "cocina" | "caja" | "platillos" | "historial";
+type Section = "cocina" | "caja" | "platillos" | "historial" | "parallevar"; // ✅ NUEVO
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [section, setSection] = useState<Section>("cocina");
   const [loading, setLoading] = useState(true);
+
+  // ✅ LOG para ver si sí cambia cuando le picas al nav
+  useEffect(() => {
+    console.log("🧭 [App] section:", section);
+  }, [section]);
 
   // ===============================
   //  Verificar sesión activa
@@ -93,6 +99,9 @@ export default function App() {
         {section === "caja" && <Caja />}
         {section === "platillos" && <Platillos />}
         {section === "historial" && <Historial />}
+
+        {/* ✅ NUEVO */}
+        {section === "parallevar" && <Parallevar />}
       </main>
 
       {/* Animación */}
