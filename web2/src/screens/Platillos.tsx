@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { supabase } from "../supabaseClient";
 import { COLORS } from "../styles/theme";
 
@@ -7,9 +8,11 @@ interface Platillo {
   nombre: string;
   descripcion: string;
   precio: number;
-  disponible: boolean;
+  activo: boolean; // ✅ ESTA ES LA COLUMNA REAL EN SUPABASE
   imagen_url?: string | null;
 }
+
+const BUCKET_NAME = "platillos-images";
 
 export default function Platillos() {
   const [platillos, setPlatillos] = useState<Platillo[]>([]);
@@ -17,77 +20,112 @@ export default function Platillos() {
     nombre: "",
     descripcion: "",
     precio: 0,
-    disponible: true,
+    activo: true,
     imagen_url: "",
   });
   const [editando, setEditando] = useState<Platillo | null>(null);
-  const [imagenFile, setImagenFile] = useState<File | null>(null); // ✅ AQUÍ
+  const [imagenFile, setImagenFile] = useState<File | null>(null);
   const [seleccionadoId, setSeleccionadoId] = useState<number | null>(null);
 
+  // ✅ Anti-duplicado: bloquea múltiples clicks
+  const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
 
   const fetchPlatillos = async () => {
     const { data, error } = await supabase
       .from("platillos")
-      .select("*")
+      .select("id,nombre,descripcion,precio,activo,imagen_url")
       .order("id", { ascending: true });
 
     if (error) console.error("❌ Error al cargar platillos:", error);
-    else setPlatillos(data || []);
+    else setPlatillos((data as Platillo[]) || []);
   };
 
   useEffect(() => {
     fetchPlatillos();
   }, []);
 
- const handleGuardar = async () => {
-  if (!nuevo.nombre || nuevo.precio <= 0) {
-    alert(" Ingresa al menos un nombre y precio válido");
-    return;
-  }
+  const subirImagenASupabase = async (file: File) => {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const filePath = `platillos/${fileName}`;
 
-  let imagenUrlFinal: string | null = nuevo.imagen_url || null;
+    console.log("📎 imagenFile:", file);
 
-  //  IMAGEN LOCAL (sin Supabase)
-  if (imagenFile) {
-    imagenUrlFinal = URL.createObjectURL(imagenFile);
-  }
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(filePath, file, { upsert: true, contentType: file.type });
 
-  const dataToSave = {
-    nombre: nuevo.nombre,
-    descripcion: nuevo.descripcion,
-    precio: nuevo.precio,
-    disponible: nuevo.disponible,
-    imagen_url: imagenUrlFinal,
+    if (uploadError) {
+      console.error("❌ Upload error:", uploadError);
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+    console.log("✅ publicUrl:", data.publicUrl);
+    return data.publicUrl;
   };
 
-  const { error } = editando
-    ? await supabase
-        .from("platillos")
-        .update(dataToSave)
-        .eq("id", editando.id)
-    : await supabase
-        .from("platillos")
-        .insert([dataToSave]);
+  const handleGuardar = async () => {
+    // ✅ Anti-duplicado: si ya está guardando, no hace nada
+    if (savingRef.current) return;
 
-  if (error) {
-    console.error(" Error guardando platillo:", error);
-    alert("No se pudo guardar el platillo");
-  } else {
-    alert(editando ? " Platillo actualizado" : " Platillo agregado");
+    if (!nuevo.nombre || nuevo.precio <= 0) {
+      alert("Ingresa al menos un nombre y precio válido");
+      return;
+    }
 
-    setNuevo({
-      nombre: "",
-      descripcion: "",
-      precio: 0,
-      disponible: true,
-      imagen_url: "",
-    });
+    savingRef.current = true;
+    setIsSaving(true);
 
-    setImagenFile(null);
-    setEditando(null);
-    fetchPlatillos();
-  }
-};
+    let imagenUrlFinal: string | null = nuevo.imagen_url || null;
+
+    try {
+      // ✅ si seleccionó archivo, súbelo a Storage
+      if (imagenFile) {
+        imagenUrlFinal = await subirImagenASupabase(imagenFile);
+      }
+
+      const dataToSave = {
+        nombre: nuevo.nombre,
+        descripcion: nuevo.descripcion,
+        precio: Number(nuevo.precio),
+        activo: !!nuevo.activo,
+        imagen_url: imagenUrlFinal,
+      };
+
+      const { error } = editando?.id
+        ? await supabase.from("platillos").update(dataToSave).eq("id", editando.id)
+        : await supabase.from("platillos").insert([dataToSave]);
+
+      if (error) {
+        console.error("❌ Error guardando platillo:", error);
+        alert(`No se pudo guardar el platillo: ${error.message}`);
+        return;
+      }
+
+      alert(editando ? "Platillo actualizado" : "Platillo agregado");
+
+      setNuevo({
+        nombre: "",
+        descripcion: "",
+        precio: 0,
+        activo: true,
+        imagen_url: "",
+      });
+
+      setImagenFile(null);
+      setEditando(null);
+      setSeleccionadoId(null);
+      fetchPlatillos();
+    } catch (e: any) {
+      console.error("❌ Error subiendo imagen/guardando:", e);
+      alert(`No se pudo subir la imagen: ${e?.message || "sin mensaje"}`);
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+    }
+  };
 
   const handleEliminar = async (id: number) => {
     if (!confirm("¿Seguro que deseas eliminar este platillo?")) return;
@@ -95,31 +133,31 @@ export default function Platillos() {
     const { error } = await supabase.from("platillos").delete().eq("id", id);
     if (error) {
       console.error(error);
-      alert(" No se pudo eliminar");
+      alert("No se pudo eliminar");
     } else {
-      alert(" Platillo eliminado");
+      alert("Platillo eliminado");
       if (seleccionadoId === id) setSeleccionadoId(null);
       fetchPlatillos();
     }
   };
+
   const handleEditar = (p: Platillo) => {
     setNuevo({ ...p });
     setEditando(p);
-    setImagenFile(null); //  importante
+    setImagenFile(null);
     if (p.id) setSeleccionadoId(p.id);
   };
-
 
   const seleccionado = useMemo(() => {
     if (seleccionadoId == null) return null;
     return platillos.find((x) => x.id === seleccionadoId) || null;
   }, [platillos, seleccionadoId]);
 
-  const badgeStyle = (disponible: boolean): React.CSSProperties => ({
+  const badgeStyle = (activo: boolean): CSSProperties => ({
     ...S.badge,
-    borderColor: disponible ? "rgba(34,197,94,.40)" : "rgba(239,68,68,.40)",
-    background: disponible ? "rgba(34,197,94,.12)" : "rgba(239,68,68,.12)",
-    color: disponible ? "#22C55E" : "#EF4444",
+    borderColor: activo ? "rgba(34,197,94,.40)" : "rgba(239,68,68,.40)",
+    background: activo ? "rgba(34,197,94,.12)" : "rgba(239,68,68,.12)",
+    color: activo ? "#22C55E" : "#EF4444",
   });
 
   return (
@@ -142,9 +180,11 @@ export default function Platillos() {
                 nombre: "",
                 descripcion: "",
                 precio: 0,
-                disponible: true,
+                activo: true,
                 imagen_url: "",
               });
+              setImagenFile(null);
+              setSeleccionadoId(null);
             }}
             style={S.btnNuevo}
           >
@@ -153,7 +193,7 @@ export default function Platillos() {
         </div>
 
         {/* Form Bar */}
-          <div style={S.formBar} className="form-bar">
+        <div style={S.formBar} className="form-bar">
           <input
             type="text"
             placeholder="Nombre"
@@ -178,39 +218,54 @@ export default function Platillos() {
             }}
             style={S.input}
           />
-        <div style={S.fileWrap}>
-          <input
-            id="fileInput"
-            type="file"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0] || null;
-              setImagenFile(file);
-            }}
-            style={{ display: "none" }}
-          />
+
+          {/* File */}
+          <div style={S.fileWrap}>
+            <input
+              id="fileInput"
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setImagenFile(file);
+
+                // ✅ permite volver a elegir el mismo archivo
+                e.currentTarget.value = "";
+              }}
+              style={{ display: "none" }}
+            />
+
+            <button
+              type="button"
+              className="btnSoft"
+              style={S.fileButton}
+              onClick={() => document.getElementById("fileInput")?.click()}
+            >
+              {imagenFile ? `Imagen: ${imagenFile.name}` : "Subir imagen"}
+            </button>
+          </div>
+
+          {/* ✅ checkbox usa activo */}
+          <label style={S.label}>
+            <input
+              type="checkbox"
+              checked={nuevo.activo}
+              onChange={(e) => setNuevo({ ...nuevo, activo: e.target.checked })}
+            />
+            Disponible
+          </label>
 
           <button
-            type="button"
-            className="btnSoft"
-            style={S.fileButton}
-            onClick={() => document.getElementById("fileInput")?.click()}
+            className="btnPrimary"
+            onClick={handleGuardar}
+            style={{
+              ...S.btnGuardar,
+              opacity: isSaving ? 0.65 : 1,
+              pointerEvents: isSaving ? "none" : "auto",
+            }}
+            disabled={isSaving}
           >
-            Subir imagen
-          </button>
-        </div>
-
-        <label style={S.label}>
-          <input
-            type="checkbox"
-            checked={nuevo.disponible}
-            onChange={(e) => setNuevo({ ...nuevo, disponible: e.target.checked })}
-          />
-          Disponible
-        </label>
-
-          <button className="btnPrimary" onClick={handleGuardar} style={S.btnGuardar}>
-            {editando ? "Guardar" : "Crear"}
+            {isSaving ? "Guardando..." : editando ? "Guardar" : "Crear"}
           </button>
         </div>
 
@@ -218,7 +273,7 @@ export default function Platillos() {
         <div style={S.layout} className="platillos-grid">
           {/* Table */}
           <div style={S.card}>
-              <div style={S.tableHeaderRow} className="tableHeaderRow">
+            <div style={S.tableHeaderRow} className="tableHeaderRow">
               <div style={{ ...S.th, flex: 0.6 }}>ID</div>
               <div style={{ ...S.th, flex: 2 }}>Nombre</div>
               <div style={{ ...S.th, flex: 3 }}>Descripción</div>
@@ -226,7 +281,7 @@ export default function Platillos() {
               <div style={{ ...S.th, flex: 1.2 }}>Estado</div>
             </div>
 
-            <div style={S.tableBody}>
+            <div style={S.tableBody} className="tableBodyFix">
               {platillos.map((p) => {
                 const active = p.id === seleccionadoId;
 
@@ -250,12 +305,12 @@ export default function Platillos() {
                     </div>
 
                     <div style={{ ...S.td, flex: 1.2, textAlign: "right", color: "#EAF0FF" }}>
-                      ${p.precio.toFixed(2)}
+                      ${Number(p.precio).toFixed(2)}
                     </div>
 
-                    <div style={{ ...S.td, flex: 1.2 }}>{/* badge */}
-                      <span style={badgeStyle(p.disponible)}>
-                        {p.disponible ? "Disponible" : "No disponible"}
+                    <div style={{ ...S.td, flex: 1.2 }}>
+                      <span style={badgeStyle(p.activo)}>
+                        {p.activo ? "Disponible" : "No disponible"}
                       </span>
                     </div>
                   </div>
@@ -287,8 +342,8 @@ export default function Platillos() {
                     <div style={S.sideName}>{seleccionado.nombre}</div>
                     <div style={S.sideMeta}>
                       ID #{seleccionado.id} •{" "}
-                      <span style={badgeStyle(seleccionado.disponible)}>
-                        {seleccionado.disponible ? "Disponible" : "No disponible"}
+                      <span style={badgeStyle(seleccionado.activo)}>
+                        {seleccionado.activo ? "Disponible" : "No disponible"}
                       </span>
                     </div>
                   </div>
@@ -313,7 +368,9 @@ export default function Platillos() {
 
                 <div style={S.sideSection}>
                   <div style={S.sideLabel}>Precio</div>
-                  <div style={S.sideValueStrong}>${seleccionado.precio.toFixed(2)}</div>
+                  <div style={S.sideValueStrong}>
+                    ${Number(seleccionado.precio).toFixed(2)}
+                  </div>
                 </div>
 
                 <div style={S.sideActions}>
@@ -341,11 +398,8 @@ export default function Platillos() {
   );
 }
 
-/* ===== CSS (animaciones suaves + responsive) ===== */
+/* ===== CSS (tu estilo original) ===== */
 const css = `
-/* ===============================
-   EFECTOS
-================================ */
 .row:hover { background: rgba(255,255,255,0.03); }
 .rowActive { background: rgba(124,58,237,0.10); }
 
@@ -356,32 +410,25 @@ const css = `
 .btnDanger:hover { transform: translateY(-1px); opacity: .98; }
 .btnDanger:active { transform: translateY(0px); opacity: .96; }
 
-/* ===============================
-   TABLET
-================================ */
+.btnPrimary[disabled] { opacity: .65; cursor: not-allowed; transform: none; }
+
 @media (max-width: 1050px){
   .platillos-grid {
     grid-template-columns: 1fr !important;
   }
 }
 
-/* ===============================
-   MÓVIL – PLATILLOS
-================================ */
 @media (max-width: 640px) {
 
-  /* layout principal */
   .platillos-grid {
     grid-template-columns: 1fr !important;
     gap: 16px;
   }
 
-  /* oculta encabezado tabla */
   .tableHeaderRow {
     display: none !important;
   }
 
-  /* filas como cards */
   .row {
     flex-direction: column !important;
     align-items: flex-start !important;
@@ -389,7 +436,6 @@ const css = `
     padding: 14px !important;
   }
 
-  /* columnas ocupan todo */
   .row > div {
     width: 100% !important;
     flex: none !important;
@@ -397,21 +443,17 @@ const css = `
     white-space: normal !important;
   }
 
-  /* precio destacado */
   .row > div:nth-child(4) {
     font-size: 16px;
     font-weight: 900;
     color: #A855F7;
   }
 
-  /* badge abajo */
   .row > div:last-child {
     margin-top: 6px;
   }
 }
-  /* ===============================
-   FORMULARIO RESPONSIVE (MÓVIL)
-================================ */
+
 @media (max-width: 640px) {
   .form-bar {
     grid-template-columns: 1fr !important;
@@ -431,12 +473,13 @@ const css = `
     justify-self: stretch;
   }
 }
+
 @media (max-width: 640px) {
   .form-bar label {
     padding: 6px 0;
   }
 }
-  /* Ocultar spinner nativo */
+
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -444,15 +487,58 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 input[type="number"] {
-  -moz-appearance: textfield; /* Firefox */
+  -moz-appearance: textfield;
+  
+}
+  /* ==== FIX OVERFLOW / BARRAS RARAS ==== */
+
+/* el grid debe permitir que las columnas se encojan */
+.platillos-grid {
+  overflow: hidden;
 }
 
+/* MUY importante: permite que los hijos no se salgan */
+.platillos-grid > div {
+  min-width: 0;
+}
 
+/* las cards no deben dejar que algo se salga */
+.platillos-grid > div {
+  overflow: hidden;
+}
+
+/* evita la barra horizontal fea */
+body {
+  overflow-x: hidden;
+}
+
+/* tu tabla: el área que scrollea es solo el body */
+.tableBodyFix {
+  max-height: 520px;   /* ajusta si quieres */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* suaviza el scroll y quita rebotes raros */
+.tableBodyFix::-webkit-scrollbar {
+  width: 10px;
+}
+.tableBodyFix::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+}
+.tableBodyFix::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.04);
+}
+.tableBodyFix {  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) rgba(255,255,255,0.04);  -ms-overflow-style: none; /* IE and Edge */
+}
+.tableBodyFix::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
 `;
 
-
-/* ===== Styles (sin letras brillosas) ===== */
-const S: Record<string, React.CSSProperties> = {
+/* ===== Styles (tu estilo original) ===== */
+const S: Record<string, CSSProperties> = {
   page: {
     minHeight: "100vh",
     background:
@@ -462,7 +548,7 @@ const S: Record<string, React.CSSProperties> = {
   wrap: {
     maxWidth: "100%",
     margin: "0 auto",
-    padding: "24px 16px", 
+    padding: "24px 16px",
   },
 
   header: {
@@ -481,7 +567,7 @@ const S: Record<string, React.CSSProperties> = {
   title: {
     margin: 0,
     fontSize: 20,
-    fontWeight: 1000 as const,
+    fontWeight: 1000,
     color: "#EAF0FF",
   },
   subtitle: {
@@ -545,7 +631,7 @@ const S: Record<string, React.CSSProperties> = {
     border: "1px solid rgba(255,255,255,0.10)",
     borderRadius: 12,
     padding: "10px 14px",
-    fontWeight: 1000 as const,
+    fontWeight: 1000,
     cursor: "pointer",
     transition: "transform 120ms ease, opacity 120ms ease",
     boxShadow: "0 18px 30px rgba(124,58,237,0.20)",
@@ -560,13 +646,15 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   card: {
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.06)",
-  background: "rgba(13, 21, 38, 0.72)",
-  backdropFilter: "blur(10px)",
-  boxShadow: "0 14px 30px rgba(0,0,0,0.35)",
-  minHeight: 520,
-},
+    borderRadius: 18,
+    border: "1px solid rgba(255,255,255,0.06)",
+    background: "rgba(13, 21, 38, 0.72)",
+    backdropFilter: "blur(10px)",
+    boxShadow: "0 14px 30px rgba(0,0,0,0.35)",
+    minHeight: 520,
+    overflow: "hidden", // ✅
+  },
+
 
   tableHeaderRow: {
     display: "flex",
@@ -576,7 +664,7 @@ const S: Record<string, React.CSSProperties> = {
   },
   th: {
     fontSize: 16,
-    fontWeight: 1000 as const,
+    fontWeight: 1000,
     color: "rgba(226,232,240,0.68)",
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -611,7 +699,7 @@ const S: Record<string, React.CSSProperties> = {
     borderRadius: 999,
     padding: "5px 10px",
     fontSize: 17,
-    fontWeight: 1000 as const,
+    fontWeight: 1000,
     border: "1px solid rgba(255,255,255,0.10)",
     whiteSpace: "nowrap",
   },
@@ -636,30 +724,29 @@ const S: Record<string, React.CSSProperties> = {
   },
   emptyText: { fontWeight: 950, color: "rgba(226,232,240,0.75)" },
 
-  // side
- sideEmpty: {
-  padding: 24,
-  minHeight: "100%",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  textAlign: "center",
-},
+  sideEmpty: {
+    padding: 24,
+    minHeight: "100%",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    textAlign: "center",
+  },
 
- sideEmptyTitle: {
-  fontWeight: 1000 as const,
-  fontSize: 23,        
-  color: "#EAF0FF",
-},
+  sideEmptyTitle: {
+    fontWeight: 1000,
+    fontSize: 23,
+    color: "#EAF0FF",
+  },
 
-sideEmptyText: {
-  marginTop: 10,
-  fontSize: 19,        
-  color: "rgba(226,232,240,0.75)",
-  lineHeight: 1.5,
-  maxWidth: 320,
-},
+  sideEmptyText: {
+    marginTop: 10,
+    fontSize: 19,
+    color: "rgba(226,232,240,0.75)",
+    lineHeight: 1.5,
+    maxWidth: 320,
+  },
 
   sideCard: { padding: 18 },
   sideTop: {
@@ -670,7 +757,7 @@ sideEmptyText: {
     paddingBottom: 12,
     borderBottom: "1px solid rgba(255,255,255,0.06)",
   },
-  sideName: { fontSize: 20, fontWeight: 1000 as const, color: "#EAF0FF" },
+  sideName: { fontSize: 20, fontWeight: 1000, color: "#EAF0FF" },
   sideMeta: {
     marginTop: 8,
     color: "rgba(226,232,240,0.70)",
@@ -697,7 +784,7 @@ sideEmptyText: {
     alignItems: "center",
     justifyContent: "center",
     fontSize: 15,
-    fontWeight: 1000 as const,
+    fontWeight: 1000,
     background: "rgba(10,16,32,0.35)",
   },
 
@@ -707,10 +794,20 @@ sideEmptyText: {
     textTransform: "uppercase",
     letterSpacing: 0.4,
     color: "rgba(226,232,240,0.62)",
-    fontWeight: 1000 as const,
+    fontWeight: 1000,
   },
-  sideValue: { marginTop: 6, color: "rgba(226,232,240,0.86)", fontSize: 14, lineHeight: 1.45 },
-  sideValueStrong: { marginTop: 6, color: "#EAF0FF", fontSize: 18, fontWeight: 1000 as const },
+  sideValue: {
+    marginTop: 6,
+    color: "rgba(226,232,240,0.86)",
+    fontSize: 14,
+    lineHeight: 1.45,
+  },
+  sideValueStrong: {
+    marginTop: 6,
+    color: "#EAF0FF",
+    fontSize: 18,
+    fontWeight: 1000,
+  },
 
   sideActions: { display: "flex", gap: 10, marginTop: 16 },
   btnEditar: {
@@ -721,7 +818,7 @@ sideEmptyText: {
     borderRadius: 12,
     padding: "10px 12px",
     cursor: "pointer",
-    fontWeight: 1000 as const,
+    fontWeight: 1000,
     transition: "transform 120ms ease",
   },
   btnEliminar: {
@@ -732,34 +829,24 @@ sideEmptyText: {
     borderRadius: 12,
     padding: "10px 12px",
     cursor: "pointer",
-    fontWeight: 1000 as const,
+    fontWeight: 1000,
     transition: "transform 120ms ease, opacity 120ms ease",
   },
-fileWrap: {
-  display: "flex",
-  width: "100%",
-},
+  fileWrap: {
+    display: "flex",
+    width: "100%",
+  },
 
-fileButton: {
-  flex: 1,                 
-  width: "100%",
-  background: "rgba(124,58,237,.14)",
-  color: "#E9D5FF",
-  border: "1px dashed rgba(124,58,237,.45)",
-  borderRadius: 12,
-  padding: "10px 12px",
-  fontWeight: 900,
-  cursor: "pointer",
-  textAlign: "left",
-},
-
-fileName: {
-  fontSize: 14,
-  color: "rgba(226,232,240,0.75)",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-  maxWidth: 180,
-},
-
+  fileButton: {
+    flex: 1,
+    width: "100%",
+    background: "rgba(124,58,237,.14)",
+    color: "#E9D5FF",
+    border: "1px dashed rgba(124,58,237,.45)",
+    borderRadius: 12,
+    padding: "10px 12px",
+    fontWeight: 900,
+    cursor: "pointer",
+    textAlign: "left",
+  },
 };

@@ -6,7 +6,7 @@ import { COLORS } from "../styles/theme";
 
 interface Venta {
   pedido_id: number;
-  numero_mesa: number;
+  numero_mesa: number | null;
   fecha: string;
   platillo: string;
   descripcion: string | null;
@@ -76,7 +76,7 @@ export default function Historial() {
 
     const tableData = ventas.map((v) => [
       v.pedido_id,
-      `Mesa ${v.numero_mesa}`,
+      v.numero_mesa ? `Mesa ${v.numero_mesa}` : "Para llevar",
       v.platillo,
       v.descripcion || "-",
       v.cantidad,
@@ -147,27 +147,60 @@ export default function Historial() {
   };
 
   return (
-  <div style={S.page}>
-    <style>{`
-      .wrap { max-width: "100%"; margin: 0 auto; padding: 36px 32px }
-      .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
-      .stack { display: grid; gap: 22px; margin-top: 22px; }
+    <div style={S.page}>
+      <style>{`
+        /* ===== FIX: NO DESBORDE / MOBILE SAFE ===== */
+        html, body { overflow-x: hidden; }
+        * { box-sizing: border-box; }
 
-      @media (max-width: 980px) {
-        .cards { grid-template-columns: 1fr; }
-      }
+        .wrap {
+          max-width: 100%;
+          width: 100%;
+          margin: 0 auto;
+          padding: 36px 32px;
+          overflow: hidden; /* evita desborde del layout */
+        }
 
-      input[type="date"]::-webkit-calendar-picker-indicator {
-        filter: invert(1);
-        opacity: 0.85;
-        cursor: pointer;
-        transform: scale(1.7);
-      }
-    `}</style>
+        .cards {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr)); /* ✅ minmax para que no se salga */
+          gap: 22px;
+        }
+        .cards > * { min-width: 0; } /* ✅ evita que los cards empujen horizontal */
 
-    <div className="wrap">
-      {/* resto del código */}
+        .stack { display: grid; gap: 22px; margin-top: 22px; }
+        .stack > * { min-width: 0; }
 
+        /* ✅ scroll horizontal SOLO dentro de la tabla */
+        .tableScroll {
+          width: 100%;
+          max-width: 100%;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        /* ✅ si la tabla es más ancha, que scrollee adentro y NO rompa la pantalla */
+        .tableScroll table { min-width: 860px; }
+
+        @media (max-width: 980px) {
+          .cards { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 640px) {
+          .wrap { padding: 22px 14px; } /* ✅ más compacto en móvil */
+          .tableScroll table { min-width: 760px; } /* ✅ reduce un poco el ancho mínimo */
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+          filter: invert(1);
+          opacity: 0.85;
+          cursor: pointer;
+          transform: scale(1.7);
+        }
+      `}</style>
+
+      <div className="wrap">
         {/* Title (centered like screenshot top) */}
         <div style={S.topTitle}>
           <span style={S.topTitleText}>Sistema de Restaurante</span>
@@ -220,7 +253,7 @@ export default function Historial() {
           <div style={S.panel}>
             <div style={S.panelLabel}>Filtrar por fecha</div>
 
-              <div style={S.filterRow}>
+            <div style={S.filterRow}>
               <div style={S.dateWrap}>
                 <input
                   type="date"
@@ -230,8 +263,8 @@ export default function Historial() {
                 />
               </div>
             </div>
-            <div style={{ marginTop: 14 }}>
 
+            <div style={{ marginTop: 14 }}>
               <button
                 onClick={generarPDF}
                 style={S.pdfBtn}
@@ -255,7 +288,7 @@ export default function Historial() {
                 <div style={S.emptyText}>No hay ventas registradas</div>
               </div>
             ) : (
-              <div style={{ width: "100%", overflowX: "auto" }}>
+              <div className="tableScroll">
                 <table style={S.table}>
                   <thead>
                     <tr>
@@ -272,14 +305,12 @@ export default function Historial() {
                     {ventas.map((v, i) => (
                       <tr key={`${v.pedido_id}-${i}`} style={S.tr}>
                         <td style={S.td}>#{v.pedido_id}</td>
-                        <td style={S.td}>Mesa {v.numero_mesa}</td>
+                        <td style={S.td}>{v.numero_mesa ? `Mesa ${v.numero_mesa}` : "Para llevar"}</td>
                         <td style={S.td}>{v.platillo}</td>
                         <td style={S.tdMuted}>{v.descripcion || "-"}</td>
                         <td style={S.tdRight}>{v.cantidad}</td>
                         <td style={S.tdRight}>{formatMoney(v.precio_unitario)}</td>
-                        <td style={S.tdRight}>
-                          {formatMoney(v.cantidad * v.precio_unitario)}
-                        </td>
+                        <td style={S.tdRight}>{formatMoney(v.cantidad * v.precio_unitario)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -366,33 +397,32 @@ const S: Record<string, React.CSSProperties> = {
     marginBottom: 12,
   },
 
- filterRow: {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: 20,         
-  flexWrap: "wrap",
-},
-
+  filterRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 20,
+    flexWrap: "wrap",
+  },
 
   dateWrap: {
-  position: "relative",
-  width: 230,     
-  maxWidth: "100%",
-},
+    position: "relative",
+    width: 230,
+    maxWidth: "100%",
+  },
 
- dateInput: {
-  width: "100%",
-  background: "rgba(10, 16, 32, 0.75)",
-  color: "#FFFFFF",
-  border: "1px solid rgba(255,255,255,0.16)",
-  borderRadius: 16,
-  padding: "18px 20px",   
-  fontSize: 18,          
-  fontWeight: 900,
-  outline: "none",
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.05)",
-},
+  dateInput: {
+    width: "100%",
+    background: "rgba(10, 16, 32, 0.75)",
+    color: "#FFFFFF",
+    border: "1px solid rgba(255,255,255,0.16)",
+    borderRadius: 16,
+    padding: "18px 20px",
+    fontSize: 18,
+    fontWeight: 900,
+    outline: "none",
+    boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.05)",
+  },
 
   calendarBadge: {
     position: "absolute",
@@ -412,17 +442,16 @@ const S: Record<string, React.CSSProperties> = {
   },
 
   pdfBtn: {
-  background: COLORS.primary || "#7C3AED",
-  border: "1px solid rgba(255,255,255,0.12)",
-  color: "#fff",
-  padding: "18px 22px",   
-  fontSize: 16,
-  fontWeight: 900,
-  cursor: "pointer",
-  boxShadow: "0 16px 30px rgba(124,58,237,0.30)",
-  transition: "transform 120ms ease, opacity 120ms ease",
-},
-
+    background: COLORS.primary || "#7C3AED",
+    border: "1px solid rgba(255,255,255,0.12)",
+    color: "#fff",
+    padding: "18px 22px",
+    fontSize: 16,
+    fontWeight: 900,
+    cursor: "pointer",
+    boxShadow: "0 16px 30px rgba(124,58,237,0.30)",
+    transition: "transform 120ms ease, opacity 120ms ease",
+  },
 
   emptyWrap: {
     minHeight: 220,
@@ -447,14 +476,14 @@ const S: Record<string, React.CSSProperties> = {
     fontSize: 22,
   },
   emptyText: {
-  color: "rgba(226,232,240,0.88)",
-  fontWeight: 900,
-  fontSize: 18,          // ⬅️ MÁS GRANDE
-  letterSpacing: 0.2,
-},
+    color: "rgba(226,232,240,0.88)",
+    fontWeight: 900,
+    fontSize: 18,
+    letterSpacing: 0.2,
+  },
   emptyMini: {
     display: "flex",
-    flexDirection: "column",  
+    flexDirection: "column",
   },
   muted: { color: "rgba(226,232,240,0.70)", fontWeight: 700 },
 

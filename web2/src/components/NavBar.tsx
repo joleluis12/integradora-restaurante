@@ -18,11 +18,8 @@ export default function NavBar({ section, setSection }: NavBarProps) {
 
   useEffect(() => {
     const onResize = () => {
-      if (window.innerWidth > 768) {
-        setOpen(false);
-      }
+      if (window.innerWidth > 820) setOpen(false);
     };
-
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -52,69 +49,38 @@ export default function NavBar({ section, setSection }: NavBarProps) {
         borderBottom: "1px solid rgba(0,0,0,0.12)",
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          padding: "12px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        {/* LEFT */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {/* HAMBURGUESA */}
+      {/* ✅ UNA SOLA BARRA (desktop y móvil) */}
+      <div className="navBarRow">
+        {/* LEFT: hamburguesa + brand */}
+        <div className="navLeft">
           <button
-            onClick={() => setOpen(!open)}
+            onClick={() => setOpen((v) => !v)}
             className="hamburger"
-            style={{
-              fontSize: 26,
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              display: "none",
-            }}
             aria-label="Abrir menú"
+            type="button"
           >
             ☰
           </button>
 
-          <div
-            style={{
-              fontFamily: 'Georgia, "Times New Roman", Times, serif',
-              fontSize: 26,
-              fontWeight: 500,
-              color: "#46087b",
-              lineHeight: 1,
-              whiteSpace: "nowrap",
-              userSelect: "none",
-            }}
-          >
-            Restaurante Villa Duarte
-          </div>
+          <div className="brand">Restaurante Villa Duarte</div>
         </div>
 
-        {/* LINKS DESKTOP */}
-        <div className="nav-links" style={{ display: "flex", gap: 14, marginRight: 12 }}>
+        {/* RIGHT: links desktop */}
+        <div className="nav-links">
           <button onClick={() => setSection("cocina")} style={linkStyle(section === "cocina")}>
             Cocina
           </button>
-
           <button onClick={() => setSection("caja")} style={linkStyle(section === "caja")}>
             Caja
           </button>
-
           <button onClick={() => setSection("platillos")} style={linkStyle(section === "platillos")}>
             Platillos
           </button>
-
           <button onClick={() => setSection("historial")} style={linkStyle(section === "historial")}>
             Historial
           </button>
-
-          {/* ✅ NUEVO */}
           <button onClick={() => setSection("parallevar")} style={linkStyle(section === "parallevar")}>
-            Para llevar (WhatsApp)
+            Para llevar
           </button>
 
           <button
@@ -183,7 +149,6 @@ export default function NavBar({ section, setSection }: NavBarProps) {
             Historial
           </button>
 
-          {/* ✅ NUEVO */}
           <button
             onClick={() => {
               setSection("parallevar");
@@ -200,14 +165,82 @@ export default function NavBar({ section, setSection }: NavBarProps) {
         </div>
       )}
 
-      {/* CSS RESPONSIVE */}
+      {/* ✅ CSS RESPONSIVE */}
       <style>{`
+        .navBarRow {
+          width: 100%;
+          padding: 12px 16px;
+          box-sizing: border-box;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+
+        .navLeft {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+
+        .brand {
+          font-family: Georgia, "Times New Roman", Times, serif;
+          font-size: 26px;
+          font-weight: 500;
+          color: #46087b;
+          line-height: 1.1; /* ✅ leve mejora desktop */
+          white-space: nowrap;
+          user-select: none;
+        }
+
+        .hamburger {
+          font-size: 26px;
+          width: 50px;
+          height: 64px;
+          display: none;
+          place-items: center;
+          background: none;
+          border: none;
+          cursor: pointer;
+          border-radius: 10px;
+        }
+
         @media (max-width: 820px) {
-          .nav-links {
-            display: none !important;
+          .nav-links { display: none !important; }
+          .hamburger { display: grid !important; }
+
+          .navBarRow {
+            display: grid !important;
+            grid-template-columns: 40px 1fr 40px; /* ✅ igual al botón */
+            align-items: center;
+            padding: 1px 12px; /* ✅ más compacto */
           }
+
+          /* ✅ Esto es lo que lo alinea al mismo nivel:
+             hacemos el título un "flex-center" con altura 40px */
+          .brand {
+            grid-column: 2;
+            justify-self: center;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            height: 40px;      /* ✅ igual al botón */
+            line-height: 44px; /* ✅ baseline perfecto */
+            font-size: 20px;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          .navLeft { display: contents; }
+
           .hamburger {
-            display: block !important;
+            grid-column: 1;
+            justify-self: start;
           }
         }
       `}</style>

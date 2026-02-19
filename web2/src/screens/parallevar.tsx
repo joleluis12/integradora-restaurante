@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { COLORS } from "../styles/theme";
 
-type Estado = "Enviado" | "Listo";
+type Estado = "Enviado" | "Listo" | "Entregado";
 
 interface Platillo {
   id: number;
@@ -17,7 +17,7 @@ interface DetallePedido {
   cantidad: number;
   precio_unitario: number;
   nota: string | null;
-  platillos: { nombre: string | null; descripcion: string | null } | null;
+  platillos: { nombre: string | null; descripcion: string | null }[] | null;
 }
 
 interface Pedido {
@@ -44,7 +44,7 @@ interface CarritoItem {
 type AlertVariant = "info" | "success" | "warning" | "danger";
 
 function maskPhoneExample(prefix = "653") {
-  return `${prefix}xxxxxxx`; 
+  return `${prefix}xxxxxxx`;
 }
 
 function AlertModal({
@@ -82,7 +82,7 @@ function AlertModal({
         <div style={AM.header}>
           <div style={AM.brand}>Restaurante Villa Duarte</div>
           <button style={AM.close} onClick={onClose} aria-label="Cerrar">
-          <span style={AM.closeIcon}>×</span>
+            <span style={AM.closeIcon}>×</span>
           </button>
         </div>
 
@@ -137,27 +137,25 @@ const AM: Record<string, React.CSSProperties> = {
     color: "#EAF0FF",
     letterSpacing: 0.2,
   },
- close: {
-  width: 36,
-  height: 36,
-  borderRadius: 12,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(10,16,32,0.55)",
-  color: "rgba(234,240,255,0.95)",
-  cursor: "pointer",
-  display: "grid",
-  placeItems: "center",
-  padding: 0,
-  lineHeight: 0,
-},
-
-closeIcon: {
-  display: "block",
-  fontSize: 22,
-  lineHeight: 1,
-  transform: "translateY(-1px)", 
-},
-
+  close: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "rgba(10,16,32,0.55)",
+    color: "rgba(234,240,255,0.95)",
+    cursor: "pointer",
+    display: "grid",
+    placeItems: "center",
+    padding: 0,
+    lineHeight: 0,
+  },
+  closeIcon: {
+    display: "block",
+    fontSize: 22,
+    lineHeight: 1,
+    transform: "translateY(-1px)",
+  },
   bar: {
     height: 3,
     width: "100%",
@@ -167,7 +165,7 @@ closeIcon: {
   },
   title: {
     fontSize: 18,
-    fontWeight: 1000 as any,
+    fontWeight: 1000 as const,
     color: "#EAF0FF",
     marginBottom: 8,
   },
@@ -191,7 +189,7 @@ closeIcon: {
     border: "1px solid rgba(255,255,255,0.10)",
     background: "rgba(10,16,32,0.55)",
     color: "#EAF0FF",
-    fontWeight: 1000 as any,
+    fontWeight: 1000 as const,
     cursor: "pointer",
   },
   btnPrimary: {
@@ -236,14 +234,11 @@ export default function Parallevar() {
   // =========================
   const limpiarTelefono = (t?: string | null) => String(t || "").replace(/[^\d]/g, "");
 
-  // Si tiene 10 dígitos -> agrega 52
-  // Si ya viene con 52... -> lo respeta
   const normalizarTelMX = (telRaw?: string | null) => {
     const tel = limpiarTelefono(telRaw);
     if (!tel) return "";
-
-    if (tel.length === 10) return `52${tel}`; // 10 => 52 + 10
-    if (tel.startsWith("52") && tel.length === 12) return tel; // 52 + 10
+    if (tel.length === 10) return `52${tel}`;
+    if (tel.startsWith("52") && tel.length === 12) return tel;
     return tel;
   };
 
@@ -256,27 +251,34 @@ export default function Parallevar() {
 
   const abrirWhatsApp = (telRaw: string | null, msg: string) => {
     const tel = normalizarTelMX(telRaw);
-
     if (!tel) {
       showAlert("Contacto faltante", "Este pedido no tiene teléfono registrado.", "warning");
       return;
     }
-
     window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`, "_blank", "noopener,noreferrer");
   };
 
+  // =========================
+  //  HOY (RANGO)
+  // =========================
+  const rangoHoy = () => {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  };
+
   useEffect(() => {
-    console.log("[Parallevar] mounted");
     fetchAll();
 
+    // Realtime: cuando cambie pedidos o detalle_pedidos, refresca
     const channel = supabase
       .channel("realtime-parallevar-full")
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => {
-        console.log("[Parallevar] realtime pedidos -> refresh");
         fetchPedidos();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "detalle_pedidos" }, () => {
-        console.log("[Parallevar] realtime detalle_pedidos -> refresh");
         fetchPedidos();
       })
       .subscribe();
@@ -287,14 +289,33 @@ export default function Parallevar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ refresca automático cuando cambia el día (00:00)
+  useEffect(() => {
+    const programarRefreshDiario = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(24, 0, 5, 0); // 00:00:05 del siguiente día
+
+      const ms = next.getTime() - now.getTime();
+      const t = window.setTimeout(async () => {
+        await fetchPedidos();
+        programarRefreshDiario();
+      }, ms);
+
+      return () => window.clearTimeout(t);
+    };
+
+    const cancel = programarRefreshDiario();
+    return () => cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const fetchAll = async () => {
     await Promise.all([fetchPlatillos(), fetchPedidos()]);
   };
 
   const fetchPlatillos = async () => {
     try {
-      console.log("[Parallevar] fetchPlatillos...");
-
       const { data, error } = await supabase
         .from("platillos")
         .select("id, nombre, descripcion, precio, activo")
@@ -302,23 +323,21 @@ export default function Parallevar() {
 
       if (error) throw error;
 
-      const list = ((data || []) as Platillo[]).filter((p) =>
-        p.activo === undefined ? true : p.activo
-      );
-
-      console.log("[Parallevar] platillos:", list.length);
+      const list = ((data || []) as Platillo[]).filter((p) => (p.activo === undefined ? true : p.activo));
       setPlatillos(list);
-    } catch (e: any) {
-      console.error("[Parallevar] fetchPlatillos error:", e);
-      // no bloquea UI; solo log
+    } catch (e) {
+      // no bloquea UI
+      console.error(e);
     }
   };
 
+  // ✅ SOLO PEDIDOS DE HOY (Enviado / Listo)
   const fetchPedidos = async () => {
     try {
-      console.log("[Parallevar] fetchPedidos (llevar)...");
       setLoading(true);
       setErrMsg(null);
+
+      const { start, end } = rangoHoy();
 
       const { data, error } = await supabase
         .from("pedidos")
@@ -341,23 +360,24 @@ export default function Parallevar() {
         `
         )
         .eq("tipo_servicio", "llevar")
-        .in("estado", ["Enviado", "Listo"])
+        .in("estado", ["Enviado", "Listo"]) // ✅ hoy solo muestra Enviado/Listo
+        .gte("created_at", start.toISOString())
+        .lte("created_at", end.toISOString())
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
       const typed = (data || []) as Pedido[];
-      console.log("[Parallevar] pedidos llevar:", typed.length);
-
       setPedidos(typed);
 
       if (!pedidoSeleccionadoId && typed.length > 0) setPedidoSeleccionadoId(typed[0].id);
+
       if (pedidoSeleccionadoId && !typed.some((p) => p.id === pedidoSeleccionadoId)) {
         setPedidoSeleccionadoId(typed[0]?.id ?? null);
       }
-    } catch (e: any) {
-      console.error("[Parallevar] fetchPedidos error:", e);
-      setErrMsg(e?.message ?? "Error cargando pedidos");
+    } catch (e: Error | unknown) {
+      console.error(e);
+      setErrMsg(e instanceof Error ? e.message : "Error cargando pedidos");
       setPedidos([]);
     } finally {
       setLoading(false);
@@ -383,11 +403,14 @@ export default function Parallevar() {
     [carrito]
   );
 
+  // ✅ color robusto (no falla por mayúsculas/espacios)
   const estadoColor = (estado?: string) => {
-    if (!estado) return "#94A3B8";
-    if (estado === "Enviado") return "#F59E0B";
-    if (estado === "Listo") return "#10B981";
-    return "#3B82F6";
+    const e = String(estado || "").trim().toLowerCase();
+    if (!e) return "#94A3B8";
+    if (e === "enviado") return "#F59E0B";
+    if (e === "listo") return "#10B981";
+    if (e === "entregado") return "#3B82F6";
+    return "#94A3B8";
   };
 
   // ====== carrito ======
@@ -405,9 +428,7 @@ export default function Parallevar() {
 
   const changeQty = (platilloId: number, delta: number) => {
     setCarrito((prev) =>
-      prev.map((it) =>
-        it.platillo.id === platilloId ? { ...it, cantidad: Math.max(1, it.cantidad + delta) } : it
-      )
+      prev.map((it) => (it.platillo.id === platilloId ? { ...it, cantidad: Math.max(1, it.cantidad + delta) } : it))
     );
   };
 
@@ -423,9 +444,7 @@ export default function Parallevar() {
   const crearPedidoParaLlevar = async () => {
     const nom = nombre.trim();
 
-    if (!nom) {
-      return showAlert("Datos incompletos", "Escribe el nombre del cliente.", "warning");
-    }
+    if (!nom) return showAlert("Datos incompletos", "Escribe el nombre del cliente.", "warning");
 
     if (!validarTel(telefono)) {
       return showAlert(
@@ -440,7 +459,6 @@ export default function Parallevar() {
     }
 
     const telNormalizado = normalizarTelMX(telefono);
-    console.log("[Parallevar] crearPedidoParaLlevar:", { nom, telNormalizado, items: carrito.length });
 
     try {
       setCreando(true);
@@ -449,7 +467,6 @@ export default function Parallevar() {
       if (userErr) throw userErr;
 
       const userId = userRes?.user?.id ?? null;
-      console.log("[Parallevar] userId:", userId);
 
       // 1) crear pedido
       const { data: pedidoIns, error: e1 } = await supabase
@@ -470,7 +487,6 @@ export default function Parallevar() {
       if (e1) throw e1;
 
       const pedidoId = pedidoIns.id as number;
-      console.log("[Parallevar] pedido creado id:", pedidoId);
 
       // 2) insertar detalle_pedidos
       const rows = carrito.map((it) => ({
@@ -481,8 +497,6 @@ export default function Parallevar() {
         subtotal: it.cantidad * it.platillo.precio,
         nota: it.nota?.trim() || null,
       }));
-
-      console.log("[Parallevar] insert detalle rows:", rows.length);
 
       const { error: e2 } = await supabase.from("detalle_pedidos").insert(rows);
       if (e2) throw e2;
@@ -502,38 +516,49 @@ export default function Parallevar() {
       abrirWhatsApp(telNormalizado, `Tu orden #${pedidoId} ha sido recibida y está en preparación.`);
 
       showAlert("Pedido creado", `La orden #${pedidoId} fue registrada correctamente.`, "success");
-    } catch (e: any) {
-      console.error("[Parallevar] crearPedidoParaLlevar error:", e);
+    } catch (e: Error | unknown) {
+      console.error(e);
 
-      if (String(e?.message || "").toLowerCase().includes("row-level security")) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+
+      if (errorMessage.toLowerCase().includes("row-level security")) {
         showAlert(
           "Permiso denegado",
           "Tu usuario no tiene permisos para crear pedidos. Revisa las políticas RLS en Supabase.",
           "danger"
         );
       } else {
-        showAlert("No se pudo crear el pedido", e?.message ?? "Intenta de nuevo.", "danger");
+        showAlert("No se pudo crear el pedido", errorMessage || "Intenta de nuevo.", "danger");
       }
     } finally {
       setCreando(false);
     }
   };
 
-  const marcarListo = async (pedido: Pedido) => {
+  // ✅ WhatsApp: Lista = MARCA LISTO + ENVÍA MENSAJE
+  // (y el historial se va solo por el TRIGGER en Supabase)
+  const whatsLista = async (pedido: Pedido) => {
     try {
-      console.log("[Parallevar] marcarListo:", pedido.id);
+      const estadoActual = String(pedido.estado || "").trim();
 
-      const total = totalPedido(pedido.detalle_pedidos || []);
-      const { error } = await supabase.from("pedidos").update({ estado: "Listo", total }).eq("id", pedido.id);
-      if (error) throw error;
+      // si NO está Listo todavía, lo marcamos en BD
+      if (estadoActual !== "Listo") {
+        const total = totalPedido(pedido.detalle_pedidos || []);
 
-      await fetchPedidos();
+        const { error } = await supabase
+          .from("pedidos")
+          .update({ estado: "Listo", total })
+          .eq("id", pedido.id);
+
+        if (error) throw error;
+
+        await fetchPedidos(); // por si realtime tarda
+      }
+
       abrirWhatsApp(pedido.telefono, `Tu orden #${pedido.id} ya está terminada. Disponible en mostrador.`);
-
-      showAlert("Pedido actualizado", `La orden #${pedido.id} se marcó como lista.`, "success");
-    } catch (e: any) {
-      console.error("[Parallevar] marcarListo error:", e);
-      showAlert("No se pudo marcar como listo", e?.message ?? "Intenta de nuevo.", "danger");
+    } catch (e: Error | unknown) {
+      console.error(e);
+      showAlert("Error", e instanceof Error ? e.message : "No se pudo marcar como listo.", "danger");
     }
   };
 
@@ -550,25 +575,19 @@ export default function Parallevar() {
 
         {/* ===== Crear pedido ===== */}
         <div style={S.panel} className="panel">
-          <h3 style={{ margin: 0, fontSize: 22, fontWeight: 1000 as any, color: "#EAF0FF" }}>
+          <h3 style={{ margin: 0, fontSize: 22, fontWeight: 1000 as const, color: "#EAF0FF" }}>
             Crear orden para llevar
           </h3>
 
           <div style={S.formGrid}>
             <div>
               <div style={S.label}>Nombre</div>
-              <input
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                style={S.input}
-                placeholder="Ej: Juan Pérez"
-              />
+              <input value={nombre} onChange={(e) => setNombre(e.target.value)} style={S.input} placeholder="Ej: Juan Pérez" />
             </div>
 
             <div>
               <div style={S.label}>Teléfono (10 dígitos)</div>
 
-              {/* input con hint de +52 */}
               <div style={S.phoneWrap}>
                 <div style={S.phonePrefix}>+52</div>
                 <input
@@ -696,7 +715,7 @@ export default function Parallevar() {
               <div style={S.panelHeader}>
                 <div>
                   <h3 style={S.panelTitle}>Pedidos</h3>
-                  <p style={S.panelSub}>Enviado / Listo</p>
+                  <p style={S.panelSub}>Enviado / Listo (hoy)</p>
                 </div>
               </div>
 
@@ -732,14 +751,12 @@ export default function Parallevar() {
                             color: c,
                           }}
                         >
-                          {String(p.estado).toUpperCase()}
+                          {String(p.estado).trim().toUpperCase()}
                         </span>
                       </div>
 
                       <div style={S.metaRow}>
-                        <span style={S.metaText}>
-                          {p.nombre_cliente ? `Cliente: ${p.nombre_cliente}` : "Cliente: —"}
-                        </span>
+                        <span style={S.metaText}>{p.nombre_cliente ? `Cliente: ${p.nombre_cliente}` : "Cliente: —"}</span>
                         <span style={S.metaText}>{p.telefono ? `Tel: +${p.telefono}` : "Tel: —"}</span>
                       </div>
 
@@ -755,7 +772,7 @@ export default function Parallevar() {
                 {pedidos.length === 0 && (
                   <div style={S.emptyMini}>
                     <div style={S.emptyMiniIcon}>⬚</div>
-                    <div style={S.emptyMiniText}>No hay pedidos para llevar</div>
+                    <div style={S.emptyMiniText}>No hay pedidos para llevar hoy</div>
                   </div>
                 )}
               </div>
@@ -790,7 +807,7 @@ export default function Parallevar() {
                         boxShadow: `0 16px 28px ${estadoColor(pedidoSeleccionado.estado)}33`,
                       }}
                     >
-                      {String(pedidoSeleccionado.estado).toUpperCase()}
+                      {String(pedidoSeleccionado.estado).trim().toUpperCase()}
                     </span>
                   </div>
 
@@ -804,9 +821,9 @@ export default function Parallevar() {
                           <div key={d.id} style={S.itemRow} className="itemRow">
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={S.itemName}>
-                                {d.platillos?.nombre || "Platillo"} <span style={S.itemQty}>× {d.cantidad}</span>
+                                {d.platillos?.[0]?.nombre || "Platillo"} <span style={S.itemQty}>× {d.cantidad}</span>
                               </div>
-                              {d.platillos?.descripcion && <div style={S.itemDesc}>{d.platillos.descripcion}</div>}
+                              {d.platillos?.[0]?.descripcion && <div style={S.itemDesc}>{d.platillos[0].descripcion}</div>}
                               {d.nota && <div style={S.itemNote}>Nota: {d.nota}</div>}
                             </div>
 
@@ -830,16 +847,8 @@ export default function Parallevar() {
                       </span>
                     </div>
 
-                    {pedidoSeleccionado.estado === "Enviado" ? (
-                      <button className="primaryBtn" style={S.btnPrimary} onClick={() => marcarListo(pedidoSeleccionado)}>
-                        Marcar como listo y enviar mensaje
-                      </button>
-                    ) : (
-                      <button style={S.btnDisabled} disabled>
-                        Pedido listo
-                      </button>
-                    )}
-
+                    {/* ✅ YA NO HAY BOTÓN GRIS NI BOTÓN DE HISTORIAL */}
+                    {/* SOLO WHATSAPP */}
                     <div style={S.whatsRow}>
                       <button
                         style={{ ...S.btnWhats, opacity: pedidoSeleccionado.telefono ? 1 : 0.5 }}
@@ -857,12 +866,7 @@ export default function Parallevar() {
                       <button
                         style={{ ...S.btnWhatsOk, opacity: pedidoSeleccionado.telefono ? 1 : 0.5 }}
                         disabled={!pedidoSeleccionado.telefono}
-                        onClick={() =>
-                          abrirWhatsApp(
-                            pedidoSeleccionado.telefono,
-                            `Tu orden #${pedidoSeleccionado.id} ya está terminada. Disponible en mostrador.`
-                          )
-                        }
+                        onClick={() => whatsLista(pedidoSeleccionado)}
                       >
                         WhatsApp: Lista
                       </button>
@@ -987,7 +991,7 @@ const S: Record<string, React.CSSProperties> = {
     height: 46,
   },
   phonePrefix: {
-    fontWeight: 1000 as any,
+    fontWeight: 1000 as const,
     color: "rgba(226,232,240,0.80)",
     borderRight: "1px solid rgba(255,255,255,0.08)",
     paddingRight: 10,
@@ -1001,12 +1005,6 @@ const S: Record<string, React.CSSProperties> = {
     color: "#EAF0FF",
     fontWeight: 800,
   },
-  helperText: {
-    marginTop: 6,
-    fontSize: 12,
-    fontWeight: 800,
-    color: "rgba(226,232,240,0.65)",
-  },
 
   subPanel: {
     border: "1px solid rgba(255,255,255,0.06)",
@@ -1015,7 +1013,7 @@ const S: Record<string, React.CSSProperties> = {
     overflow: "hidden",
   },
   subHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, padding: 12 },
-  subTitle: { fontSize: 14, fontWeight: 1000 as any, color: "#EAF0FF" },
+  subTitle: { fontSize: 14, fontWeight: 1000 as const, color: "#EAF0FF" },
   totalMini: { fontSize: 12, fontWeight: 900, color: "rgba(226,232,240,0.75)" },
 
   list: { display: "grid", gap: 8, padding: 12, maxHeight: 420, overflowY: "auto" },
@@ -1033,7 +1031,7 @@ const S: Record<string, React.CSSProperties> = {
   },
   rowName: {
     fontSize: 14,
-    fontWeight: 1000 as any,
+    fontWeight: 1000 as const,
     color: "#EAF0FF",
     whiteSpace: "nowrap",
     overflow: "hidden",
@@ -1041,8 +1039,8 @@ const S: Record<string, React.CSSProperties> = {
   },
   rowDesc: { marginTop: 6, fontSize: 12, color: "rgba(226,232,240,0.62)" },
   rowRight: { display: "grid", gap: 6, justifyItems: "end" },
-  rowPrice: { fontWeight: 1000 as any, color: "#F472B6", whiteSpace: "nowrap" },
-  rowAdd: { fontSize: 12, fontWeight: 1000 as any, color: "rgba(226,232,240,0.80)" },
+  rowPrice: { fontWeight: 1000 as const, color: "#F472B6", whiteSpace: "nowrap" },
+  rowAdd: { fontSize: 12, fontWeight: 1000 as const, color: "rgba(226,232,240,0.80)" },
 
   cartItem: {
     border: "1px solid rgba(255,255,255,0.06)",
@@ -1055,42 +1053,41 @@ const S: Record<string, React.CSSProperties> = {
   },
   cartRight: { display: "grid", gap: 8, justifyItems: "end" },
 
-qtyRow: {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 10,
-},
+  qtyRow: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
 
-qtyBtn: {
-  width: 36,
-  height: 36,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  borderRadius: 10,
-  border: "1px solid rgba(255,255,255,0.10)",
-  background: "rgba(10, 16, 32, 0.55)",
-  color: "#EAF0FF",
-  fontWeight: 1000 as any,
-  fontSize: 18,
-  lineHeight: 1,          // CLAVE
-  padding: 0,             // CLAVE
-  cursor: "pointer",
-  userSelect: "none",
-},
+  qtyBtn: {
+    width: 36,
+    height: 36,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "rgba(10, 16, 32, 0.55)",
+    color: "#EAF0FF",
+    fontWeight: 1000 as const,
+    fontSize: 18,
+    lineHeight: 1,
+    padding: 0,
+    cursor: "pointer",
+    userSelect: "none",
+  },
 
-qtyNum: {
-  minWidth: 26,
-  height: 36,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontWeight: 1000 as any,
-  color: "#EAF0FF",
-  lineHeight: 1,          // CLAVE
-},
-
+  qtyNum: {
+    minWidth: 26,
+    height: 36,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 1000 as const,
+    color: "#EAF0FF",
+    lineHeight: 1,
+  },
 
   removeBtn: {
     border: "1px solid rgba(255,255,255,0.10)",
@@ -1099,7 +1096,7 @@ qtyNum: {
     padding: "8px 10px",
     borderRadius: 12,
     cursor: "pointer",
-    fontWeight: 1000 as any,
+    fontWeight: 1000 as const,
   },
 
   btnPrimary: {
@@ -1109,7 +1106,7 @@ qtyNum: {
     padding: "14px 16px",
     background: COLORS.primary || "#7C3AED",
     color: "#fff",
-    fontWeight: 1000 as any,
+    fontWeight: 1000 as const,
     fontSize: 15,
     cursor: "pointer",
     boxShadow: "0 18px 30px rgba(124,58,237,0.25)",
@@ -1133,10 +1130,10 @@ qtyNum: {
     boxShadow: "0 12px 22px rgba(0,0,0,0.25)",
   },
   topRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  orderTitle: { fontSize: 18, fontWeight: 1000 as any, color: "#FFFFFF", lineHeight: 1 },
+  orderTitle: { fontSize: 18, fontWeight: 1000 as const, color: "#FFFFFF", lineHeight: 1 },
   metaRow: { display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" },
   metaText: { fontSize: 12, fontWeight: 800, color: "rgba(226,232,240,0.75)" },
-  pill: { fontSize: 11, fontWeight: 1000 as any, padding: "6px 10px", borderRadius: 999, letterSpacing: 0.4 },
+  pill: { fontSize: 11, fontWeight: 1000 as const, padding: "6px 10px", borderRadius: 999, letterSpacing: 0.4 },
   dot: { position: "absolute", top: 12, left: 12, width: 10, height: 10, borderRadius: 99 },
 
   emptyMini: {
@@ -1185,14 +1182,14 @@ qtyNum: {
     marginBottom: 8,
     fontSize: 26,
   },
-  emptyTitle: { margin: 0, fontSize: 32, fontWeight: 1000 as any, color: "#EAF0FF" },
+  emptyTitle: { margin: 0, fontSize: 32, fontWeight: 1000 as const, color: "#EAF0FF" },
   emptyText: { marginTop: 8, color: "rgba(226,232,240,0.7)", fontSize: 20, fontWeight: 700 },
 
   detailHeader: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" },
-  detailTitle: { fontSize: 20, fontWeight: 1000 as any, color: "#EAF0FF" },
+  detailTitle: { fontSize: 20, fontWeight: 1000 as const, color: "#EAF0FF" },
   detailHash: { color: "#A855F7" },
   detailSub: { marginTop: 6, fontSize: 12, color: "rgba(226,232,240,0.65)", fontWeight: 700 },
-  statusBadge: { padding: "8px 12px", borderRadius: 12, color: "#0B1220", fontWeight: 1000 as any, fontSize: 12, letterSpacing: 0.6 },
+  statusBadge: { padding: "8px 12px", borderRadius: 12, color: "#0B1220", fontWeight: 1000 as const, fontSize: 12, letterSpacing: 0.6 },
   divider: { height: 1, background: "rgba(255,255,255,0.08)", margin: "14px 0" },
 
   detailBox: {
@@ -1210,29 +1207,17 @@ qtyNum: {
     borderBottom: "1px solid rgba(255,255,255,0.06)",
     transition: "background 120ms ease",
   },
-  itemName: { fontSize: 14, fontWeight: 1000 as any, color: "#EAF0FF" },
-  itemQty: { color: "rgba(226,232,240,0.65)", fontWeight: 900, marginLeft: 6 },
+  itemName: { fontSize: 14, fontWeight: 1000 as const, color: "#EAF0FF" },
+  itemQty: { color: "rgba(226,232,240,0.65)", fontWeight: 900 as const, marginLeft: 6 },
   itemDesc: { marginTop: 6, fontSize: 12, color: "rgba(226,232,240,0.62)" },
   itemNote: { marginTop: 6, fontSize: 12, color: "rgba(226,232,240,0.78)" },
-  itemPrice: { textAlign: "right", fontWeight: 1000 as any, color: "#F472B6", whiteSpace: "nowrap" },
-  itemUnit: { marginTop: 4, fontSize: 11, fontWeight: 800, color: "rgba(226,232,240,0.55)" },
+  itemPrice: { textAlign: "right", fontWeight: 1000 as const, color: "#F472B6", whiteSpace: "nowrap" },
+  itemUnit: { marginTop: 4, fontSize: 11, fontWeight: 800 as const, color: "rgba(226,232,240,0.55)" },
   emptyInside: { padding: 16, textAlign: "center", color: "rgba(226,232,240,0.7)", fontWeight: 800 },
 
   actions: { marginTop: 14, display: "grid", gap: 12 },
-  totalLine: { fontWeight: 1000 as any, color: "rgba(226,232,240,0.85)" },
+  totalLine: { fontWeight: 1000 as const, color: "rgba(226,232,240,0.85)" },
   totalPink: { color: "#F472B6" },
-
-  btnDisabled: {
-    width: "100%",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: 14,
-    padding: "14px 16px",
-    background: "rgba(148,163,184,0.18)",
-    color: "rgba(226,232,240,0.65)",
-    fontWeight: 1000 as any,
-    fontSize: 15,
-    cursor: "not-allowed",
-  },
 
   whatsRow: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 },
 
@@ -1243,7 +1228,7 @@ qtyNum: {
     padding: "14px 16px",
     background: "#1f6feb",
     color: "#fff",
-    fontWeight: 1000 as any,
+    fontWeight: 1000 as const,
     fontSize: 14,
     cursor: "pointer",
     transition: "transform 120ms ease, opacity 120ms ease",
@@ -1255,7 +1240,7 @@ qtyNum: {
     padding: "14px 16px",
     background: "#1a7f37",
     color: "#fff",
-    fontWeight: 1000 as any,
+    fontWeight: 1000 as const,
     fontSize: 14,
     cursor: "pointer",
     transition: "transform 120ms ease, opacity 120ms ease",
