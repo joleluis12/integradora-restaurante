@@ -21,7 +21,11 @@ import { COLORS, FONTS, CARD } from "../styles/theme";
 
 type Estado = "Inconclusa" | "Enviado" | "Entregado";
 type Filtro = "Todas" | Estado;
+// Límites de negocio
+const MAX_MESAS = 10;
+const MAX_OCUPANTES = 12;
 
+const onlyDigits = (value: string) => value.replace(/[^0-9]/g, "");
 export default function HomeScreen({ navigation, user }: any) {
   const [mesas, setMesas] = useState<any[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -49,6 +53,57 @@ export default function HomeScreen({ navigation, user }: any) {
   const modalScale = useRef(new Animated.Value(0.92)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
   const [focusField, setFocusField] = useState<"mesa" | "ocupantes" | "nota" | null>(null);
+  // ===== Validación dura (NO deja pasar límites) + aviso (sin spam) =====
+const warnMesaRef = useRef(false);
+const warnOcupRef = useRef(false);
+
+const handleMesaChange = (t: string) => {
+  const clean = onlyDigits(t);
+
+  // permitir borrar
+  if (clean === "") {
+    setNumeroMesa("");
+    return;
+  }
+
+  const n = Number(clean);
+  if (!Number.isFinite(n) || n <= 0) return;
+
+  if (n > MAX_MESAS) {
+    if (!warnMesaRef.current) {
+      warnMesaRef.current = true;
+      Alert.alert("No se puede", `Solo tienes ${MAX_MESAS} mesas (1 a ${MAX_MESAS}).`);
+      setTimeout(() => (warnMesaRef.current = false), 900);
+    }
+    return; // BLOQUEA
+  }
+
+  setNumeroMesa(clean);
+};
+
+const handleOcupantesChange = (t: string) => {
+  const clean = onlyDigits(t);
+
+  // permitir borrar
+  if (clean === "") {
+    setOcupantes("");
+    return;
+  }
+
+  const n = Number(clean);
+  if (!Number.isFinite(n) || n <= 0) return;
+
+  if (n > MAX_OCUPANTES) {
+    if (!warnOcupRef.current) {
+      warnOcupRef.current = true;
+      Alert.alert("No se puede", `Máximo ${MAX_OCUPANTES} ocupantes.`);
+      setTimeout(() => (warnOcupRef.current = false), 900);
+    }
+    return; // BLOQUEA
+  }
+
+  setOcupantes(clean);
+};
 
   // Ribbons animadas del panel
   const ribbon1 = useRef(new Animated.Value(0)).current;
@@ -158,34 +213,59 @@ export default function HomeScreen({ navigation, user }: any) {
   }, []);
 
   const agregarMesa = async () => {
-    if (!numeroMesa) return Alert.alert(" Ingresa el número de mesa");
-    try {
-      const { error } = await supabase.from("pedidos").insert([
-        {
-          id_mesero: user.id,
-          numero_mesa: Number(numeroMesa),
-          ocupantes: Number(ocupantes) || null,
-          nota,
-          estado: "Inconclusa",
-          fecha: new Date().toISOString(),
-          total: 0,
-        },
-      ]);
+  const mesaNum = Number(numeroMesa);
+  const occNum = ocupantes ? Number(ocupantes) : null;
 
-      if (error) {
-        console.log(" Error al agregar mesa:", error.message);
-        Alert.alert("Error", "No se pudo agregar la mesa");
-      } else {
-        setModalVisible(false);
-        setNumeroMesa("");
-        setOcupantes("");
-        setNota("");
-      }
-    } catch (err: any) {
-      console.log(" Error:", err.message);
-      Alert.alert("Error", err.message);
+  // === Validación mesa ===
+  if (!numeroMesa) return Alert.alert("No se puede", "Ingresa el número de mesa.");
+
+  if (!Number.isFinite(mesaNum) || mesaNum < 1 || mesaNum > 10) {
+    return Alert.alert("No se puede", "Solo puedes usar mesas del 1 al 10.");
+  }
+
+  // Evita abrir la misma mesa 2 veces
+  const yaExiste = mesas.some((m) => Number(m.numero_mesa) === mesaNum);
+  if (yaExiste) {
+    return Alert.alert("No se puede", `La mesa ${mesaNum} ya está abierta.`);
+  }
+
+  // === Validación ocupantes (opcional) ===
+  if (occNum !== null) {
+    if (!Number.isFinite(occNum) || occNum < 1) {
+      return Alert.alert("No se puede", "Los ocupantes deben ser mínimo 1.");
     }
-  };
+    if (occNum > 12) {
+      return Alert.alert("No se puede", "Máximo 12 ocupantes.");
+    }
+  }
+
+  try {
+    const { error } = await supabase.from("pedidos").insert([
+      {
+        id_mesero: user.id,
+        numero_mesa: mesaNum,
+        ocupantes: occNum,
+        nota,
+        estado: "Inconclusa",
+        fecha: new Date().toISOString(),
+        total: 0,
+      },
+    ]);
+
+    if (error) {
+      console.log(" Error al agregar mesa:", error.message);
+      Alert.alert("Error", "No se pudo agregar la mesa");
+    } else {
+      setModalVisible(false);
+      setNumeroMesa("");
+      setOcupantes("");
+      setNota("");
+    }
+  } catch (err: any) {
+    console.log(" Error:", err.message);
+    Alert.alert("Error", err.message);
+  }
+};
 
   const estadoColors = (estado: Estado | string) => {
     switch (estado) {
@@ -596,7 +676,8 @@ export default function HomeScreen({ navigation, user }: any) {
                   placeholderTextColor={COLORS.textGray}
                   keyboardType="numeric"
                   value={numeroMesa}
-                  onChangeText={setNumeroMesa}
+                  onChangeText={handleMesaChange}
+                  maxLength={2}
                   onFocus={() => setFocusField("mesa")}
                   onBlur={() => setFocusField(null)}
                   style={styles.inputPillText}
@@ -613,7 +694,8 @@ export default function HomeScreen({ navigation, user }: any) {
                   placeholderTextColor={COLORS.textGray}
                   keyboardType="numeric"
                   value={ocupantes}
-                  onChangeText={setOcupantes}
+                  onChangeText={handleOcupantesChange}
+                  maxLength={2}
                   onFocus={() => setFocusField("ocupantes")}
                   onBlur={() => setFocusField(null)}
                   style={styles.inputPillText}
