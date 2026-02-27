@@ -13,6 +13,7 @@ import {
   ScrollView,
   Platform,
   StatusBar,
+  SafeAreaView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "../supabase/supabaseClient";
@@ -31,13 +32,14 @@ export default function LoginScreen({ navigation }: any) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(0.95)).current;
 
+  const androidTop = Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : 0;
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
       Animated.spring(slideAnim, { toValue: 0, friction: 7, tension: 40, useNativeDriver: true }),
     ]).start();
 
-    // Pulso suave del fondo
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.05, duration: 2800, useNativeDriver: true }),
@@ -48,7 +50,7 @@ export default function LoginScreen({ navigation }: any) {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert(" Campos vacíos", "Por favor completa todos los campos");
+      Alert.alert("Campos vacíos", "Por favor completa todos los campos");
       return;
     }
 
@@ -56,10 +58,17 @@ export default function LoginScreen({ navigation }: any) {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      // Normaliza (evita fallos por espacios / mayúsculas)
+      const emailClean = email.trim().toLowerCase();
+      const passClean = password.trim();
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailClean,
+        password: passClean,
+      });
 
       if (error) {
-        console.log(" Error al iniciar sesión:", error.message);
+        console.log("Error al iniciar sesión:", error.message);
         Alert.alert("Error", error.message);
         return;
       }
@@ -77,12 +86,12 @@ export default function LoginScreen({ navigation }: any) {
         .maybeSingle();
 
       if (perfilError) {
-        console.log(" Error cargando perfil:", perfilError.message);
+        console.log("Error cargando perfil:", perfilError.message);
       }
 
       const perfilFinal = perfil || {
         id: user.id,
-        nombre: user.email.split("@")[0],
+        nombre: user.email?.split("@")?.[0] ?? "Usuario",
         rol: "Mesero",
       };
 
@@ -96,7 +105,7 @@ export default function LoginScreen({ navigation }: any) {
         Alert.alert("Error", "Rol no válido o no definido");
       }
     } catch (err: any) {
-      console.log(" Error inesperado:", err.message);
+      console.log("Error inesperado:", err.message);
       Alert.alert("Error inesperado", err.message);
     } finally {
       setLoading(false);
@@ -111,143 +120,172 @@ export default function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <LinearGradient colors={[COLORS.accent, COLORS.primary]} style={styles.bg}>
-      <StatusBar barStyle="light-content" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1, width: "100%" }}
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.scrollContainer}
+    <SafeAreaView style={styles.safe}>
+      <LinearGradient colors={[COLORS.accent, COLORS.primary]} style={styles.bg}>
+        <StatusBar barStyle="light-content" />
+
+        <KeyboardAvoidingView
+          // iOS sí, Android no (evita “brincos” raros / layouts rotos)
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.kav}
         >
-          {/* Background decorativo */}
-          <Animated.View style={[styles.bgCircle1, { transform: [{ scale: pulseAnim }] }]} />
-          <View style={styles.bgCircle2} />
-          <View style={styles.bgCircle3} />
-
-          {/* Tarjeta glass */}
-          <Animated.View
-            style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[styles.scrollContainer, { paddingTop: androidTop + 56 }]}
           >
-            <Text style={styles.icon}></Text>
-            <Text style={styles.title}>Acceso de Meseros</Text>
-            <Text style={styles.subtitle}>Gestiona pedidos con tu cuenta</Text>
+            {/* Background decorativo */}
+            <Animated.View style={[styles.bgCircle1, { transform: [{ scale: pulseAnim }] }]} />
+            <View style={styles.bgCircle2} />
+            <View style={styles.bgCircle3} />
 
-            {/* Email */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Correo electrónico</Text>
-              <View
-                style={[
-                  styles.inputWrapper,
-                  focusedInput === "email" && styles.inputWrapperFocused,
-                ]}
-              >
-                <Text style={styles.inputIcon}></Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="ejemplo@correo.com"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="email-address"
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={() => setFocusedInput("email")}
-                  onBlur={() => setFocusedInput(null)}
-                  autoCapitalize="none"
-                  returnKeyType="next"
-                />
+            {/* Tarjeta glass */}
+            <Animated.View
+              style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+            >
+              <Text allowFontScaling={false} style={styles.icon}></Text>
+              <Text allowFontScaling={false} style={styles.title}>
+                Acceso de Meseros
+              </Text>
+              <Text allowFontScaling={false} style={styles.subtitle}>
+                Gestiona pedidos con tu cuenta
+              </Text>
+
+              {/* Email */}
+              <View style={styles.inputGroup}>
+                <Text allowFontScaling={false} style={styles.label}>
+                  Correo electrónico
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    focusedInput === "email" && styles.inputWrapperFocused,
+                  ]}
+                >
+                  <Text allowFontScaling={false} style={styles.inputIcon}></Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="ejemplo@correo.com"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="email-address"
+                    value={email}
+                    onChangeText={setEmail}
+                    onFocus={() => setFocusedInput("email")}
+                    onBlur={() => setFocusedInput(null)}
+                    autoCapitalize="none"
+                    returnKeyType="next"
+                    autoCorrect={false}
+                  />
+                </View>
               </View>
-            </View>
 
-            {/* Password */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Contraseña</Text>
-              <View
-                style={[
-                  styles.inputWrapper,
-                  focusedInput === "password" && styles.inputWrapperFocused,
-                ]}
-              >
-                <Text style={styles.inputIcon}></Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="••••••••"
-                  placeholderTextColor="#9CA3AF"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                  onFocus={() => setFocusedInput("password")}
-                  onBlur={() => setFocusedInput(null)}
-                  returnKeyType="done"
-                  onSubmitEditing={handleLogin}
-                />
+              {/* Password */}
+              <View style={styles.inputGroup}>
+                <Text allowFontScaling={false} style={styles.label}>
+                  Contraseña
+                </Text>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    focusedInput === "password" && styles.inputWrapperFocused,
+                  ]}
+                >
+                  <Text allowFontScaling={false} style={styles.inputIcon}></Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="••••••••"
+                    placeholderTextColor="#9CA3AF"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                    onFocus={() => setFocusedInput("password")}
+                    onBlur={() => setFocusedInput(null)}
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword((v) => !v)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    activeOpacity={0.7}
+                  >
+                    <Text allowFontScaling={false} style={styles.eye}>
+                      {showPassword ? "" : ""}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Botón */}
+              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                 <TouchableOpacity
-                  onPress={() => setShowPassword((v) => !v)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  activeOpacity={0.7}
+                  style={[styles.btnTouchable, loading && styles.btnDisabled]}
+                  onPress={() => {
+                    animateButton();
+                    handleLogin();
+                  }}
+                  disabled={loading}
+                  activeOpacity={0.9}
                 >
-                  <Text style={styles.eye}>{showPassword ? "" : ""}</Text>
+                  <LinearGradient
+                    colors={[COLORS.primary, COLORS.accent]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.btnGrad}
+                  >
+                    {loading ? (
+                      <View style={styles.btnContent}>
+                        <ActivityIndicator color={COLORS.white} size="small" />
+                        <Text allowFontScaling={false} style={styles.btnText}>
+                          Cargando...
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text allowFontScaling={false} style={styles.btnText}>
+                        Ingresar
+                      </Text>
+                    )}
+                  </LinearGradient>
                 </TouchableOpacity>
-              </View>
-            </View>
+              </Animated.View>
 
-            {/* Botón */}
-            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-              <TouchableOpacity
-                style={[styles.btnTouchable, loading && styles.btnDisabled]}
-                onPress={() => {
-                  animateButton();
-                  handleLogin();
-                }}
-                disabled={loading}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={[COLORS.primary, COLORS.accent]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.btnGrad}
-                >
-                  {loading ? (
-                    <View style={styles.btnContent}>
-                      <ActivityIndicator color={COLORS.white} size="small" />
-                      <Text style={styles.btnText}>Cargando...</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.btnText}>Ingresar</Text>
-                  )}
-                </LinearGradient>
+              {/* Separador */}
+              <View style={styles.divider}>
+                <View style={styles.line} />
+                <Text allowFontScaling={false} style={styles.dividerText}>
+                  o
+                </Text>
+                <View style={styles.line} />
+              </View>
+
+              {/* Enlace registro */}
+              <TouchableOpacity onPress={() => navigation.navigate("Register")} activeOpacity={0.8}>
+                <Text allowFontScaling={false} style={styles.link}>
+                  ¿No tienes cuenta? <Text style={styles.linkBold}>Regístrate aquí</Text>
+                </Text>
               </TouchableOpacity>
             </Animated.View>
-
-            {/* Separador */}
-            <View style={styles.divider}>
-              <View style={styles.line} />
-              <Text style={styles.dividerText}>o</Text>
-              <View style={styles.line} />
-            </View>
-
-            {/* Enlace registro */}
-            <TouchableOpacity onPress={() => navigation.navigate("Register")} activeOpacity={0.8}>
-              <Text style={styles.link}>
-                ¿No tienes cuenta? <Text style={styles.linkBold}>Regístrate aquí</Text>
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </LinearGradient>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1, justifyContent: "center", alignItems: "center" },
+  safe: { flex: 1, backgroundColor: "#000" },
+
+  // ✅ QUITÉ alignItems:center aquí para evitar layouts raros en Android cuando aparece teclado
+  bg: { flex: 1 },
+
+  kav: { flex: 1, width: "100%" },
+
   scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 56,
+    paddingBottom: 56,
   },
 
   // Burbujas decorativas
@@ -281,7 +319,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.04)",
   },
 
-  // Tarjeta estilo glass
+  // Tarjeta estilo glass (Android-safe)
   card: {
     width: "88%",
     maxWidth: 440,
@@ -290,13 +328,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#572364",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
-    // sombra
+    overflow: "hidden", // ✅ ayuda muchísimo en Android con borderRadius
+
+    // sombra cross-platform
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 12 },
     elevation: 8,
-    backdropFilter: "blur(8px)" as any, // iOS simulado
+
+    // ❌ backdropFilter no existe en RN nativo (en Android puede tronar o causar “cosas raras”)
+    // backdropFilter: "blur(8px)" as any,
   },
 
   icon: { fontSize: 52, textAlign: "center", marginBottom: 8 },
@@ -334,7 +376,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: COLORS.bgLight,
     paddingHorizontal: 14,
-    // sutil sombra para resaltar
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 8,

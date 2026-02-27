@@ -165,9 +165,15 @@ export default function MenuScreen({ navigation, route }: any) {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              {item.imagen_url ? (
-                <Image source={{ uri: item.imagen_url }} style={styles.image} />
-              ) : (
+             {item.imagen_url ? (
+                  <View style={styles.imageFrame}>
+                    <Image
+                      source={{ uri: item.imagen_url }}
+                      style={styles.image}
+                      resizeMode="cover"
+                    />
+                  </View>
+                      ) : (
                 <View style={styles.noImage}>
                   <Text style={{ fontSize: 40 }}></Text>
                   <Text style={{ color: "#777" }}>Sin imagen</Text>
@@ -345,7 +351,16 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  image: { width: "100%", height: 180 },
+  imageFrame: {
+  width: "100%",
+  aspectRatio: 16 / 9,       
+  backgroundColor: "#EEF2FF", 
+},
+
+image: {
+  width: "100%",
+  height: "100%",            
+},
   noImage: {
     width: "100%",
     height: 180,
