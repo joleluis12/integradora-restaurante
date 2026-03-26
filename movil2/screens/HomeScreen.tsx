@@ -321,6 +321,9 @@ const handleOcupantesChange = (t: string) => {
 
   const MesaCard = memo(({ item }: { item: any }) => {
     const { chipBg, chip, stripe } = estadoColors(item.estado as Estado);
+    const esEnviado = item.estado === "Enviado";
+    const esEntregado = item.estado === "Entregado";
+    const esInconclusa = item.estado === "Inconclusa";
 
     const totalMesa =
       item?.detalle_pedidos?.reduce(
@@ -342,7 +345,15 @@ const handleOcupantesChange = (t: string) => {
           onPressOut={() => pressOut(cardScale)}
           style={{ marginHorizontal: 8 }}
         >
-          <View style={[styles.card, CARD]}>
+          <View
+            style={[
+              styles.card,
+              CARD,
+              esEnviado && styles.cardEnviado,
+              esEntregado && styles.cardEntregado,
+              esInconclusa && styles.cardInconclusa,
+            ]}
+          >
             <View style={styles.rowBetween}>
               <View style={{ flex: 1 }}>
                 <Text style={[FONTS.subtitle, styles.mesaTitle]}>Mesa {item.numero_mesa}</Text>
@@ -824,6 +835,30 @@ const styles = StyleSheet.create({
     paddingLeft: CARD.padding - 4,
     borderWidth: 1.5,
     borderColor: "#E5E7EB",
+  },
+  cardEnviado: {
+    borderColor: "#F59E0B",
+    borderWidth: 2,
+    shadowColor: "rgba(245, 158, 11, 0.28)",
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  cardEntregado: {
+    borderColor: "#10B981",
+    borderWidth: 2,
+    shadowColor: "rgba(16, 185, 129, 0.25)",
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  cardInconclusa: {
+    borderColor: "#94A3B8",
+    borderWidth: 2,
+    shadowColor: "rgba(148, 163, 184, 0.23)",
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 6,
   },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
   mesaTitle: { letterSpacing: 0.2, color: COLORS.textDark },
