@@ -5,11 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "restauranteapp",
-    
     "userInterfaceStyle": "automatic",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo-256x256.png",
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/logo-256x256.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -17,8 +16,9 @@
       "supportsTablet": true
     },
     "android": {
+      "versionCode": 2,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo2.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.joleluis12.restauranteApp"

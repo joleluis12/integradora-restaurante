@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { View, ActivityIndicator, Platform } from "react-native";
 import { supabase } from "./supabase/supabaseClient";
 
-// 📱 Pantallas
 import HomeScreen from "./screens/HomeScreen";
 import MenuScreen from "./screens/MenuScreen";
 import CuentaScreen from "./screens/CuentaScreen";
@@ -27,8 +26,7 @@ export default function App() {
 
   useEffect(() => {
     const fetchSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) console.log("❌ Error obteniendo sesión:", error.message);
+      const { data } = await supabase.auth.getSession();
       const currentUser = data?.session?.user || null;
       setUser(currentUser);
       if (currentUser) await cargarPerfil(currentUser.id);
@@ -51,12 +49,11 @@ export default function App() {
   }, []);
 
   const cargarPerfil = async (userId: string) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("perfiles")
       .select("*")
       .eq("id", userId)
       .maybeSingle();
-    if (error) console.log("❌ Error cargando perfil:", error.message);
     setPerfil(data || null);
   };
 
@@ -73,7 +70,6 @@ export default function App() {
       <Stack.Navigator
         initialRouteName={user ? "HomeScreen" : "Login"}
         screenOptions={{
-          // ❗️Nada relacionado a StatusBar aquí
           headerStyle: { backgroundColor: COLORS.primary },
           headerTintColor: "#fff",
           headerTitleStyle: { fontWeight: "bold", fontSize: 20 },
@@ -89,17 +85,17 @@ export default function App() {
             <Stack.Screen
               name="MenuScreen"
               component={MenuScreen}
-              options={{ title: "Menú del día 📋" }}
+              options={{ title: "Menú" }}
             />
             <Stack.Screen
               name="CuentaScreen"
               component={CuentaScreen}
-              options={{ title: "Cuenta 🧾" }}
+              options={{ title: "Cuenta" }}
             />
             <Stack.Screen
               name="CocinaScreen"
               component={CocinaScreen}
-              options={{ title: "Pedidos en cocina 👨‍🍳" }}
+              options={{ title: "Cocina" }}
             />
           </>
         ) : (

@@ -26,7 +26,6 @@ export default function LoginScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
-  // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -58,7 +57,6 @@ export default function LoginScreen({ navigation }: any) {
     setLoading(true);
 
     try {
-      // Normaliza (evita fallos por espacios / mayúsculas)
       const emailClean = email.trim().toLowerCase();
       const passClean = password.trim();
 
@@ -68,7 +66,6 @@ export default function LoginScreen({ navigation }: any) {
       });
 
       if (error) {
-        console.log("Error al iniciar sesión:", error.message);
         Alert.alert("Error", error.message);
         return;
       }
@@ -84,10 +81,6 @@ export default function LoginScreen({ navigation }: any) {
         .select("*")
         .eq("id", user.id)
         .maybeSingle();
-
-      if (perfilError) {
-        console.log("Error cargando perfil:", perfilError.message);
-      }
 
       const perfilFinal = perfil || {
         id: user.id,
@@ -105,7 +98,6 @@ export default function LoginScreen({ navigation }: any) {
         Alert.alert("Error", "Rol no válido o no definido");
       }
     } catch (err: any) {
-      console.log("Error inesperado:", err.message);
       Alert.alert("Error inesperado", err.message);
     } finally {
       setLoading(false);
@@ -125,7 +117,7 @@ export default function LoginScreen({ navigation }: any) {
         <StatusBar barStyle="light-content" />
 
         <KeyboardAvoidingView
-          // iOS sí, Android no (evita “brincos” raros / layouts rotos)
+
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.kav}
         >
@@ -134,12 +126,10 @@ export default function LoginScreen({ navigation }: any) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={[styles.scrollContainer, { paddingTop: androidTop + 56 }]}
           >
-            {/* Background decorativo */}
             <Animated.View style={[styles.bgCircle1, { transform: [{ scale: pulseAnim }] }]} />
             <View style={styles.bgCircle2} />
             <View style={styles.bgCircle3} />
 
-            {/* Tarjeta glass */}
             <Animated.View
               style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
             >
@@ -151,7 +141,6 @@ export default function LoginScreen({ navigation }: any) {
                 Gestiona pedidos con tu cuenta
               </Text>
 
-              {/* Email */}
               <View style={styles.inputGroup}>
                 <Text allowFontScaling={false} style={styles.label}>
                   Correo electrónico
@@ -179,7 +168,6 @@ export default function LoginScreen({ navigation }: any) {
                 </View>
               </View>
 
-              {/* Password */}
               <View style={styles.inputGroup}>
                 <Text allowFontScaling={false} style={styles.label}>
                   Contraseña
@@ -217,7 +205,6 @@ export default function LoginScreen({ navigation }: any) {
                 </View>
               </View>
 
-              {/* Botón */}
               <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                 <TouchableOpacity
                   style={[styles.btnTouchable, loading && styles.btnDisabled]}
@@ -250,7 +237,6 @@ export default function LoginScreen({ navigation }: any) {
                 </TouchableOpacity>
               </Animated.View>
 
-              {/* Separador */}
               <View style={styles.divider}>
                 <View style={styles.line} />
                 <Text allowFontScaling={false} style={styles.dividerText}>
@@ -259,7 +245,6 @@ export default function LoginScreen({ navigation }: any) {
                 <View style={styles.line} />
               </View>
 
-              {/* Enlace registro */}
               <TouchableOpacity onPress={() => navigation.navigate("Register")} activeOpacity={0.8}>
                 <Text allowFontScaling={false} style={styles.link}>
                   ¿No tienes cuenta? <Text style={styles.linkBold}>Regístrate aquí</Text>
@@ -276,7 +261,6 @@ export default function LoginScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#000" },
 
-  // ✅ QUITÉ alignItems:center aquí para evitar layouts raros en Android cuando aparece teclado
   bg: { flex: 1 },
 
   kav: { flex: 1, width: "100%" },
@@ -288,7 +272,6 @@ const styles = StyleSheet.create({
     paddingBottom: 56,
   },
 
-  // Burbujas decorativas
   bgCircle1: {
     position: "absolute",
     top: -120,
@@ -319,7 +302,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.04)",
   },
 
-  // Tarjeta estilo glass (Android-safe)
   card: {
     width: "88%",
     maxWidth: 440,
@@ -328,17 +310,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#572364",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
-    overflow: "hidden", // ✅ ayuda muchísimo en Android con borderRadius
+    overflow: "hidden",
 
-    // sombra cross-platform
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 12 },
     elevation: 8,
 
-    // ❌ backdropFilter no existe en RN nativo (en Android puede tronar o causar “cosas raras”)
-    // backdropFilter: "blur(8px)" as any,
   },
 
   icon: { fontSize: 52, textAlign: "center", marginBottom: 8 },
@@ -358,7 +337,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Inputs
   inputGroup: { marginBottom: 18 },
   label: {
     fontSize: 13,
@@ -395,7 +373,6 @@ const styles = StyleSheet.create({
   },
   eye: { fontSize: 18, paddingLeft: 8 },
 
-  // Botón
   btnTouchable: {
     borderRadius: 16,
     overflow: "hidden",
@@ -416,7 +393,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  // Divider y enlaces
   divider: { flexDirection: "row", alignItems: "center", marginVertical: 22 },
   line: { flex: 1, height: 1, backgroundColor: "#E5E7EB" },
   dividerText: {

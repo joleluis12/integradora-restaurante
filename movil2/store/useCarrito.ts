@@ -6,7 +6,7 @@ interface Platillo {
   precio: number;
   descripcion?: string;
   cantidad: number;
-  nota?: string; // 🔥 se agregó campo nota
+  nota?: string;
 }
 
 interface CarritoStore {
@@ -17,13 +17,12 @@ interface CarritoStore {
   aumentar: (id: number) => void;
   disminuir: (id: number) => void;
   actualizarCantidad: (id: number, nuevaCantidad: number) => void;
-  actualizarNota: (id: number, nuevaNota: string) => void; // 🔥 nueva acción
+  actualizarNota: (id: number, nuevaNota: string) => void;
 }
 
 const useCarrito = create<CarritoStore>((set) => ({
   carrito: [],
 
-  // 🟢 Agregar platillo (si existe, aumenta cantidad)
   agregar: (p) =>
     set((state) => {
       const existe = state.carrito.find((item) => item.id === p.id);
@@ -39,16 +38,13 @@ const useCarrito = create<CarritoStore>((set) => ({
       return { carrito: [...state.carrito, { ...p, cantidad: 1 }] };
     }),
 
-  // ❌ Eliminar platillo completamente
   eliminar: (id) =>
     set((state) => ({
       carrito: state.carrito.filter((p) => p.id !== id),
     })),
 
-  // 🧹 Vaciar todo el carrito
   limpiar: () => set({ carrito: [] }),
 
-  // ➕ Aumentar cantidad
   aumentar: (id) =>
     set((state) => ({
       carrito: state.carrito.map((p) =>
@@ -56,7 +52,6 @@ const useCarrito = create<CarritoStore>((set) => ({
       ),
     })),
 
-  // ➖ Disminuir cantidad (si llega a 0, se elimina)
   disminuir: (id) =>
     set((state) => ({
       carrito: state.carrito
@@ -66,7 +61,6 @@ const useCarrito = create<CarritoStore>((set) => ({
         .filter((p) => (p.cantidad || 1) > 0),
     })),
 
-  // 🔁 Actualizar cantidad manualmente (usado por los botones ±)
   actualizarCantidad: (id, nuevaCantidad) =>
     set((state) => ({
       carrito: state.carrito.map((item) =>
@@ -74,7 +68,6 @@ const useCarrito = create<CarritoStore>((set) => ({
       ),
     })),
 
-  // 📝 Actualizar nota personalizada
   actualizarNota: (id, nuevaNota) =>
     set((state) => ({
       carrito: state.carrito.map((item) =>

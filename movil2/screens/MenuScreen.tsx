@@ -31,9 +31,6 @@ export default function MenuScreen({ navigation, route }: any) {
 
   const mesa = route?.params?.mesa;
 
-  // =========================
-  //  GLASS ALERT (tipo imagen)
-  // =========================
   const [gaVisible, setGaVisible] = useState(false);
   const [gaTitle, setGaTitle] = useState("");
   const [gaMsg, setGaMsg] = useState("");
@@ -87,7 +84,6 @@ export default function MenuScreen({ navigation, route }: any) {
     setModalVisible(true);
   };
 
-  //  Insertar platillo con nota y cantidad
   const confirmarAgregar = async () => {
     if (!mesa) return showAlert("Error", "No hay una mesa activa.");
 
@@ -106,7 +102,6 @@ export default function MenuScreen({ navigation, route }: any) {
       const { error } = await supabase.from("detalle_pedidos").insert(detalle);
 
       if (error) {
-        console.log(" Error insertando detalle:", error.message);
         showAlert("Error", "No se pudo agregar el platillo al pedido");
       } else {
         showAlert("Pedido actualizado", `${cantidad} × ${platilloSeleccionado.nombre} añadido al pedido`);
@@ -116,7 +111,6 @@ export default function MenuScreen({ navigation, route }: any) {
     setModalVisible(false);
   };
 
-  //  Enviar pedido → Cocina + volver al Home
   const enviarPedido = async () => {
     try {
       const { error } = await supabase
@@ -125,7 +119,6 @@ export default function MenuScreen({ navigation, route }: any) {
         .eq("id", mesa.id);
 
       if (error) {
-        console.log(" Error al enviar pedido:", error.message);
         return showAlert("Error", "No se pudo enviar el pedido");
       }
 
@@ -133,7 +126,6 @@ export default function MenuScreen({ navigation, route }: any) {
         navigation.navigate("HomeScreen")
       );
     } catch (err: any) {
-      console.log(" Error general:", err.message);
       showAlert("Error", "Ocurrió un problema al enviar el pedido");
     }
   };
@@ -315,7 +307,6 @@ export default function MenuScreen({ navigation, route }: any) {
   );
 }
 
-/* === ESTILOS === */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgLight },
   header: {
@@ -384,7 +375,6 @@ image: {
   },
   btnEnviarText: { textAlign: "center", color: "#fff", fontWeight: "800", fontSize: 16 },
 
-  // ===== Modal overlay =====
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.50)",
@@ -392,7 +382,6 @@ image: {
     alignItems: "center",
   },
 
-  //  Modal NUEVO (más grande y bonito)
   modalContentNew: {
     width: "100%",
     maxWidth: 440,
@@ -521,9 +510,6 @@ image: {
   loadingText: { color: COLORS.textGray, marginTop: 10 },
 });
 
-/* =========================================================
-    COMPONENTE EMBEBIDO - GLASS ALERT
-   ========================================================= */
 type GlassAlertProps = {
   visible: boolean;
   title: string;

@@ -21,7 +21,7 @@ import { COLORS, FONTS, CARD } from "../styles/theme";
 
 type Estado = "Inconclusa" | "Enviado" | "Entregado";
 type Filtro = "Todas" | Estado;
-// Límites de negocio
+
 const MAX_MESAS = 10;
 const MAX_OCUPANTES = 12;
 
@@ -37,7 +37,6 @@ export default function HomeScreen({ navigation, user }: any) {
   const [filtro, setFiltro] = useState<Filtro>("Todas");
   const [q, setQ] = useState("");
 
-  // Anim base
   const listFade = useRef(new Animated.Value(0)).current;
   const listTranslate = useRef(new Animated.Value(8)).current;
 
@@ -46,14 +45,12 @@ export default function HomeScreen({ navigation, user }: any) {
 
   const logoutScale = useRef(new Animated.Value(1)).current;
 
-  // Focus search
   const searchFocus = useRef(new Animated.Value(0)).current;
 
-  // Modal anim
   const modalScale = useRef(new Animated.Value(0.92)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
   const [focusField, setFocusField] = useState<"mesa" | "ocupantes" | "nota" | null>(null);
-  // ===== Validación dura (NO deja pasar límites) + aviso (sin spam) =====
+
 const warnMesaRef = useRef(false);
 const warnOcupRef = useRef(false);
 
@@ -105,12 +102,10 @@ const handleOcupantesChange = (t: string) => {
   setOcupantes(clean);
 };
 
-  // Ribbons animadas del panel
   const ribbon1 = useRef(new Animated.Value(0)).current;
   const ribbon2 = useRef(new Animated.Value(0)).current;
   const ribbon3 = useRef(new Animated.Value(0)).current;
 
-  // ========= Helpers anim =========
   const pressIn = (v: Animated.Value, to = 0.97) =>
     Animated.spring(v, {
       toValue: to,
@@ -158,7 +153,6 @@ const handleOcupantesChange = (t: string) => {
     loop(ribbon3, 1600);
   }, []);
 
-  // Modal open animation
   useEffect(() => {
     if (modalVisible) {
       Animated.parallel([
@@ -172,24 +166,22 @@ const handleOcupantesChange = (t: string) => {
     }
   }, [modalVisible]);
 
-  // Data
   const fetchMesas = async () => {
     try {
       const { data, error } = await supabase
         .from("pedidos")
-        .select("*, detalle_pedidos( id, cantidad, nota, platillos(nombre, precio) )")
+        .select("*, detalle_pedidos(id, cantidad, nota, platillos(nombre, precio))")
         .eq("id_mesero", user.id)
         .neq("estado", "Completada")
         .order("created_at", { ascending: false });
 
-      if (error) console.log(" Error cargando mesas:", error.message);
+      if (error) throw error;
       else setMesas(data || []);
     } catch (err: any) {
-      console.log(" Error:", err.message);
+      Alert.alert("Error", err.message);
     }
   };
 
-  // realtime
   const activarTiempoReal = () => {
     supabase
       .channel("pedidos_live")
@@ -253,7 +245,6 @@ const handleOcupantesChange = (t: string) => {
     ]);
 
     if (error) {
-      console.log(" Error al agregar mesa:", error.message);
       Alert.alert("Error", "No se pudo agregar la mesa");
     } else {
       setModalVisible(false);
@@ -262,7 +253,6 @@ const handleOcupantesChange = (t: string) => {
       setNota("");
     }
   } catch (err: any) {
-    console.log(" Error:", err.message);
     Alert.alert("Error", err.message);
   }
 };
@@ -300,13 +290,11 @@ const handleOcupantesChange = (t: string) => {
 
   const dataFiltrada = filtrar(mesas);
 
-  // métricas panel
   const totalTodas = mesas.length;
   const totalInconclusa = mesas.filter((m) => m.estado === "Inconclusa").length;
   const totalEnviado = mesas.filter((m) => m.estado === "Enviado").length;
   const totalEntregado = mesas.filter((m) => m.estado === "Entregado").length;
 
-  // ====== Stat Card (solo UI) ======
   const StatCard = ({ label, value, icon }: { label: string; value: number; icon: any }) => {
     const s = useRef(new Animated.Value(1)).current;
     return (
@@ -331,7 +319,6 @@ const handleOcupantesChange = (t: string) => {
     );
   };
 
-  // === Card con animación press ===
   const MesaCard = memo(({ item }: { item: any }) => {
     const { chipBg, chip, stripe } = estadoColors(item.estado as Estado);
 
@@ -420,7 +407,6 @@ const handleOcupantesChange = (t: string) => {
     );
   });
 
-  // FAB anim
   const pressFab = () => {
     Animated.parallel([
       Animated.sequence([
@@ -439,7 +425,6 @@ const handleOcupantesChange = (t: string) => {
     outputRange: ["0deg", "12deg"],
   });
 
-  // filtro chip anim
   const FiltroChip = ({ label }: { label: Filtro }) => {
     const active = filtro === label;
     const s = useRef(new Animated.Value(1)).current;
@@ -471,7 +456,6 @@ const handleOcupantesChange = (t: string) => {
     );
   };
 
-  // reloj
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const i = setInterval(() => setNow(new Date()), 1000);
@@ -484,7 +468,6 @@ const handleOcupantesChange = (t: string) => {
     await supabase.auth.signOut();
   };
 
-  // Botones modal con anim
   const ModalBtn = ({ label, variant, onPress }: { label: string; variant: "primary" | "ghost"; onPress: () => void }) => {
     const s = useRef(new Animated.Value(1)).current;
     const isPrimary = variant === "primary";
@@ -731,7 +714,6 @@ const handleOcupantesChange = (t: string) => {
   );
 }
 
-/* === ESTILOS === */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bgLight },
 

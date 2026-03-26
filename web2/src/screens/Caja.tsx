@@ -59,7 +59,8 @@ export default function Caja() {
     const channel = supabase
       .channel("realtime-caja")
       .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, (payload) => {
-        if (["Pendiente de cobro", "Entregado"].includes(payload.new?.estado)) {
+        const estado = (payload.new as { estado?: string })?.estado;
+        if (["Pendiente de cobro", "Entregado"].includes(estado || "")) {
           fetchPedidos();
         }
       })

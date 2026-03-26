@@ -12,6 +12,7 @@ import {
   Platform,
   Animated,
   StatusBar,
+  SafeAreaView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "../supabase/supabaseClient";
@@ -24,11 +25,12 @@ export default function RegisterScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<null | "email" | "password">(null);
 
-  // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(0.95)).current;
+
+  const androidTop = Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : 0;
 
   useEffect(() => {
     Animated.parallel([
@@ -58,11 +60,9 @@ export default function RegisterScreen({ navigation }: any) {
     try {
       setLoading(true);
 
-      // 🔹 Solo creamos el usuario — NO insertamos perfil manualmente
       const { data, error } = await supabase.auth.signUp({ email, password });
 
       if (error) {
-        console.log(" Error en signUp:", error.message);
         Alert.alert(" Error al registrar", error.message);
         return;
       }
@@ -75,7 +75,6 @@ export default function RegisterScreen({ navigation }: any) {
         );
       }
     } catch (err: any) {
-      console.log("❌ Error inesperado:", err.message);
       Alert.alert("Error inesperado", err.message);
     } finally {
       setLoading(false);
@@ -90,29 +89,27 @@ export default function RegisterScreen({ navigation }: any) {
   };
 
   return (
-    <LinearGradient colors={[COLORS.violet, COLORS.accent]} style={styles.bg}>
-      <StatusBar barStyle="light-content" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1, width: "100%" }}
-      >
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContainer}
+    <SafeAreaView style={styles.safe}>
+      <LinearGradient colors={[COLORS.violet, COLORS.accent]} style={styles.bg}>
+        <StatusBar barStyle="light-content" />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.kav}
         >
-          {/* Burbujas decorativas */}
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[styles.scrollContainer, { paddingTop: androidTop + 56 }]}
+          >
           <Animated.View style={[styles.bgCircle1, { transform: [{ scale: pulseAnim }] }]} />
           <View style={styles.bgCircle2} />
           <View style={styles.bgCircle3} />
 
-          {/* Card estilo glass */}
           <Animated.View style={[styles.card, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
             <Text style={styles.icon}></Text>
             <Text style={styles.title}>Crear cuenta</Text>
             <Text style={styles.subtitle}>Registra un nuevo mesero para el sistema</Text>
 
-            {/* Email */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Correo electrónico</Text>
               <View style={[styles.inputWrapper, focused === "email" && styles.inputWrapperFocused]}>
@@ -132,7 +129,6 @@ export default function RegisterScreen({ navigation }: any) {
               </View>
             </View>
 
-            {/* Password */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Contraseña</Text>
               <View style={[styles.inputWrapper, focused === "password" && styles.inputWrapperFocused]}>
@@ -153,7 +149,6 @@ export default function RegisterScreen({ navigation }: any) {
                   <Text style={styles.eye}>{showPassword ? "" : ""}</Text>
                 </TouchableOpacity>
               </View>
-              {/* Hint de fuerza (simple, no intrusivo) */}
               <Text style={styles.hint}>
                 {password.length === 0
                   ? "Usa 6+ caracteres. Combina letras y números."
@@ -165,7 +160,6 @@ export default function RegisterScreen({ navigation }: any) {
               </Text>
             </View>
 
-            {/* Botón */}
             <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
               <TouchableOpacity
                 style={[styles.btnTouchable, loading && styles.btnDisabled]}
@@ -194,7 +188,6 @@ export default function RegisterScreen({ navigation }: any) {
               </TouchableOpacity>
             </Animated.View>
 
-            {/* Enlace */}
             <TouchableOpacity onPress={() => navigation.navigate("Login")} activeOpacity={0.8}>
               <Text style={styles.link}>¿Ya tienes cuenta? Inicia sesión</Text>
             </TouchableOpacity>
@@ -202,19 +195,24 @@ export default function RegisterScreen({ navigation }: any) {
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  bg: { flex: 1, justifyContent: "center", alignItems: "center" },
+  safe: { flex: 1, backgroundColor: "#000" },
+
+  bg: { flex: 1 },
+
+  kav: { flex: 1, width: "100%" },
+
   scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 56,
+    paddingBottom: 56,
   },
 
-  // Burbujas decorativas
   bgCircle1: {
     position: "absolute",
     top: -120,
@@ -245,7 +243,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.04)",
   },
 
-  // Card estilo glass + tu CARD base
   card: {
     ...CARD,
     width: "88%",
@@ -260,6 +257,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     elevation: 8,
     borderRadius: 28,
+    overflow: "hidden", 
   },
 
   icon: { fontSize: 48, textAlign: "center", marginBottom: 8 },
@@ -314,7 +312,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
-  // Botón
   btnTouchable: {
     borderRadius: 16,
     overflow: "hidden",

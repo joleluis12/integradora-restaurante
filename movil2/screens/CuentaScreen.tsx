@@ -31,7 +31,6 @@ export default function CuentaScreen({ route, navigation }: any) {
     };
   }, [mesa]);
 
-  // 🔹 Cargar pedido actual
   const fetchPedido = async () => {
     try {
       const { data, error } = await supabase
@@ -40,17 +39,16 @@ export default function CuentaScreen({ route, navigation }: any) {
         .eq("id", mesa.id)
         .maybeSingle();
 
-      if (error) console.log(" Error cargando pedido:", error.message);
+      if (error) throw error;
       else setPedido(data);
     } catch (err: any) {
-      console.log(" Error:", err.message);
+      Alert.alert("Error", err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  // 🔹 Tiempo real
   const activarTiempoReal = async () => {
     const canalPedidos = supabase
       .channel("pedido_live")
@@ -69,18 +67,14 @@ export default function CuentaScreen({ route, navigation }: any) {
         async () => await fetchPedido()
       )
       .subscribe();
-
-    console.log(" Suscripción activa a pedido y detalles");
   };
 
-  // 🔹 Refresco manual al jalar hacia abajo (misma lógica que HomeScreen)
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchPedido();
     setRefreshing(false);
   }, []);
 
-  //  Pedir permiso de cobro
   const pedirCobro = async () => {
     if (pedido.estado !== "Listo") {
       Alert.alert(" No disponible", "Solo puedes pedir cobro cuando el pedido esté listo.");
@@ -94,7 +88,6 @@ export default function CuentaScreen({ route, navigation }: any) {
 
     if (error) {
       Alert.alert(" Error", "No se pudo pedir el cobro.");
-      console.log(error);
     } else {
       Alert.alert(" Pedido enviado a caja", "El cajero verá el pedido en su lista.");
     }
@@ -114,14 +107,12 @@ export default function CuentaScreen({ route, navigation }: any) {
 
     if (error) {
       Alert.alert(" Error", "No se pudo finalizar la cuenta.");
-      console.log(error);
     } else {
       Alert.alert(" Cuenta finalizada", "Pedido cerrado correctamente.");
       navigation.navigate("HomeScreen");
     }
   };
 
-  //  Generar PDF local
   const generarTicketPDF = async () => {
     try {
       const total = pedido.detalle_pedidos?.reduce(
@@ -153,7 +144,6 @@ export default function CuentaScreen({ route, navigation }: any) {
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri);
     } catch (err) {
-      console.log(" Error generando ticket PDF:", err);
       Alert.alert("Error", "No se pudo generar el ticket.");
     }
   };
@@ -227,7 +217,6 @@ export default function CuentaScreen({ route, navigation }: any) {
   );
 }
 
-/* === ESTILOS === */
 const styles = StyleSheet.create({
   main: { flex: 1, backgroundColor: COLORS.bgLight },
   scrollContainer: { padding: 20, alignItems: "center" },

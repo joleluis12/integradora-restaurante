@@ -15,7 +15,6 @@ export default function CocinaScreen({ navigation }: any) {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  //  SOLO UI: 10 mesas + selección
   const MESAS = useMemo(() => Array.from({ length: 10 }, (_, i) => i + 1), []);
   const [mesaSeleccionada, setMesaSeleccionada] = useState<number>(1);
 
@@ -67,7 +66,6 @@ export default function CocinaScreen({ navigation }: any) {
     setLoading(false);
   };
 
-  //  SOLO UI: “último pedido por mesa” para pintar la mesa
   const ultimoPedidoPorMesa = useMemo(() => {
     const map = new Map<number, any>();
     for (const p of pedidos) {
@@ -85,7 +83,6 @@ export default function CocinaScreen({ navigation }: any) {
       : "#3B82F6";
   };
 
-  //  SOLO UI: filtrar lista por mesa seleccionada
   const pedidosMesa = useMemo(() => {
     return pedidos.filter((p) => p.numero_mesa === mesaSeleccionada);
   }, [pedidos, mesaSeleccionada]);
@@ -94,7 +91,6 @@ export default function CocinaScreen({ navigation }: any) {
     <View style={styles.container}>
       <Text style={styles.title}> Pedidos activos</Text>
 
-      {/*  MESAS (10) */}
       <View style={styles.mesasBox}>
         <Text style={styles.mesasTitle}>Mesas</Text>
 
@@ -147,14 +143,13 @@ export default function CocinaScreen({ navigation }: any) {
         </View>
       </View>
 
-      {/*  LISTA (tu FlatList, pero por mesa) */}
       {loading ? (
         <View style={styles.loader}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : (
         <FlatList
-          data={pedidosMesa} // <- si quieres TODOS los pedidos, cambia a: pedidos
+          data={pedidosMesa}
           keyExtractor={(item) => item.id.toString()}
           ListEmptyComponent={
             <Text style={styles.empty}>No hay pedidos en la mesa {mesaSeleccionada}.</Text>
@@ -201,7 +196,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 10 as any, // RN ignora en algunas versiones, pero no afecta
+    gap: 10 as any,
   },
 
   mesaBtn: {
